@@ -5,7 +5,8 @@
   "description": "Telegram bot for the Curaçao crypto on-ramp (Grammy)",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "node --test"
   },
   "license": "MIT",
   "dependencies": {
