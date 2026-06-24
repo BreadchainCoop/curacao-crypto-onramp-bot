@@ -48,7 +48,12 @@ curacao-crypto-onramp-bot/
 │       ├── escrow.js
 │       └── privy.js
 ├── /contracts        ← Solidity escrow contract
-│   ├── Escrow.sol
+│   ├── src/
+│   │   ├── Escrow.sol
+│   │   └── mocks/
+│   │       └── MockUSDC.sol   ← test-only ERC20
+│   ├── test/
+│   │   └── Escrow.test.js
 │   ├── hardhat.config.js
 │   └── scripts/
 │       └── deploy.js
