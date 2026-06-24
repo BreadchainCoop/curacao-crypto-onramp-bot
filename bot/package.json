@@ -1,0 +1,15 @@
+{
+  "name": "curacao-onramp-bot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Telegram bot for the Curaçao crypto on-ramp (Grammy)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "grammy": "^1.30.0"
+  }
+}
