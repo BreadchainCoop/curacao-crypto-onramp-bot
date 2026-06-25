@@ -57,6 +57,9 @@ curacao-crypto-onramp-bot/
 │   ├── hardhat.config.js
 │   └── scripts/
 │       └── deploy.js
+├── /supabase         ← Database schema (migrations)
+│   └── migrations/
+│       └── 0001_init.sql
 ├── .env.example
 ├── .gitignore
 └── README.md
