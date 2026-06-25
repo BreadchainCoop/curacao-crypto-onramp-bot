@@ -3,6 +3,7 @@
 // Interface (both implementations below satisfy it):
 //   getBySentooTxId(txId) -> order | null
 //   tryTransition(orderId, fromStatus, toStatus) -> boolean
+//   findStalePending(cutoffIso) -> order[]   (pending_payment, created before cutoff)
 //
 // `tryTransition` is a compare-and-set: it only applies if the order is still in
 // `fromStatus`, returning whether it changed anything. This gives the webhook
@@ -31,6 +32,16 @@ class InMemoryOrdersRepository {
     if (!order || order.status !== fromStatus) return false;
     order.status = toStatus;
     return true;
+  }
+
+  async findStalePending(cutoffIso) {
+    const cutoff = Date.parse(cutoffIso);
+    return [...this.byId.values()].filter(
+      (o) =>
+        o.status === 'pending_payment' &&
+        o.createdAt != null &&
+        Date.parse(o.createdAt) < cutoff
+    );
   }
 }
 
@@ -69,6 +80,24 @@ class SupabaseOrdersRepository {
       .select('id');
     if (error) throw error;
     return Array.isArray(data) && data.length > 0;
+  }
+
+  async findStalePending(cutoffIso) {
+    const { data, error } = await this.client
+      .from('orders')
+      .select('id, amount_usdc, amount_xcg, user:users(telegram_id, wallet_address)')
+      .eq('status', 'pending_payment')
+      .lt('created_at', cutoffIso);
+    if (error) throw error;
+    return (data || []).map((d) => ({
+      id: d.id,
+      amountUsdc: Number(d.amount_usdc),
+      amountXcg: Number(d.amount_xcg),
+      user: {
+        telegramId: d.user && d.user.telegram_id,
+        walletAddress: d.user && d.user.wallet_address,
+      },
+    }));
   }
 }
 

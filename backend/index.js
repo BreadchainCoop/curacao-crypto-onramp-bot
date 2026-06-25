@@ -34,6 +34,15 @@ function startFromEnv() {
   const app = createApp(deps);
   const port = Number(process.env.PORT) || 3000;
   app.listen(port, () => console.log(`Webhook server listening on :${port}`));
+
+  // Expire orders that never got paid (Issue #11).
+  const { createExpirySweeper } = require('./services/expiry');
+  createExpirySweeper({
+    orders: deps.orders,
+    notifier: deps.notifier,
+    ttlMinutes: Number(process.env.ORDER_TTL_MINUTES) || 30,
+    intervalMs: Number(process.env.EXPIRY_SWEEP_MS) || 60_000,
+  }).start();
 }
 
 module.exports = { createApp };

@@ -97,9 +97,11 @@ test('happy path: releases USDC, completes the order, notifies the user', async 
   const order = await orders.getBySentooTxId('tx_1');
   assert.equal(order.status, 'complete');
 
-  assert.equal(notifier.calls.length, 1);
-  assert.equal(notifier.calls[0].chatId, 42);
-  assert.match(notifier.calls[0].text, /0xdeadbeef/);
+  // Two notifications: "payment received" then "USDC sent" with the tx hash.
+  assert.equal(notifier.calls.length, 2);
+  assert.match(notifier.calls[0].text, /received/i);
+  assert.equal(notifier.calls[1].chatId, 42);
+  assert.match(notifier.calls[1].text, /0xdeadbeef/);
   server.close();
 });
 
@@ -119,6 +121,9 @@ test('marks the order failed if escrow release throws', async () => {
   assert.equal(res.status, 200);
   const order = await orders.getBySentooTxId('tx_1');
   assert.equal(order.status, 'failed');
-  assert.equal(notifier.calls.length, 0); // no success message on failure
+  // "payment received" then "failed" — but never a success/tx-hash message.
+  assert.equal(notifier.calls.length, 2);
+  assert.match(notifier.calls[1].text, /problem|notified/i);
+  assert.ok(!notifier.calls.some((c) => /0xdeadbeef/.test(c.text)));
   server.close();
 });

@@ -9,11 +9,24 @@
 const express = require('express');
 const crypto = require('crypto');
 const { isPaidStatus } = require('../services/sentoo');
+const { ORDER_STATUS, messageForStatus } = require('../domain/orderStatus');
 
 function safeEqual(a, b) {
   const ba = Buffer.from(String(a));
   const bb = Buffer.from(String(b));
   return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
+}
+
+// Notifications must never break the money flow — a Telegram hiccup is logged,
+// not thrown.
+async function safeNotify(notifier, logger, chatId, status, ctx) {
+  const text = messageForStatus(status, ctx);
+  if (!text) return;
+  try {
+    await notifier.notify(chatId, text);
+  } catch (err) {
+    logger.error(`[sentoo] notify (${status}) failed for chat ${chatId}: ${err.message}`);
+  }
 }
 
 /**
@@ -54,25 +67,31 @@ function createSentooWebhookRouter({ sentoo, orders, escrow, notifier, webhookTo
       }
 
       // Idempotent claim: only one webhook may move pending_payment -> paid.
-      const claimed = await orders.tryTransition(order.id, 'pending_payment', 'paid');
+      const claimed = await orders.tryTransition(
+        order.id,
+        ORDER_STATUS.PENDING_PAYMENT,
+        ORDER_STATUS.PAID
+      );
       if (!claimed) {
         logger.info(`[sentoo] order ${order.id} already processed (status=${order.status})`);
         return res.status(200).json({ ok: true });
       }
+      await safeNotify(notifier, logger, order.user.telegramId, ORDER_STATUS.PAID);
 
-      await orders.tryTransition(order.id, 'paid', 'releasing');
+      await orders.tryTransition(order.id, ORDER_STATUS.PAID, ORDER_STATUS.RELEASING);
       try {
         const txHash = await escrow.release(order.user.walletAddress, order.amountUsdc);
-        await orders.tryTransition(order.id, 'releasing', 'complete');
-        await notifier.notify(
-          order.user.telegramId,
-          `✅ Payment received — ${order.amountUsdc} USDC sent to your wallet.\nTransaction: ${txHash}`
-        );
+        await orders.tryTransition(order.id, ORDER_STATUS.RELEASING, ORDER_STATUS.COMPLETE);
+        await safeNotify(notifier, logger, order.user.telegramId, ORDER_STATUS.COMPLETE, {
+          amountUsdc: order.amountUsdc,
+          txHash,
+        });
         logger.info(`[sentoo] order ${order.id} complete tx=${txHash}`);
       } catch (releaseErr) {
-        await orders.tryTransition(order.id, 'releasing', 'failed');
+        await orders.tryTransition(order.id, ORDER_STATUS.RELEASING, ORDER_STATUS.FAILED);
+        await safeNotify(notifier, logger, order.user.telegramId, ORDER_STATUS.FAILED);
         logger.error(`[sentoo] release failed for order ${order.id}: ${releaseErr.message}`);
-        // Already acked below; operator handles failed orders (#10 refund/retry).
+        // Operator handles failed orders (#10 refund/retry).
       }
 
       return res.status(200).json({ ok: true });
