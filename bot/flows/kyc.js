@@ -1,11 +1,17 @@
 // KYC flow — triggers Synaps verification and gates further actions on pass.
 //
-// #2: skeleton only — sends the user a (placeholder) verification link and marks
-// the session pending. The real Synaps session + /webhook/kyc result lands in #8.
+// With an injected `kyc` service, starts a real Synaps session (which persists
+// the session id + sets the user pending) and sends the verification link. The
+// /buy gate (resolveBuyGate) keeps the user out of payment until kyc_status is
+// approved. The real /webhook/kyc result lands in the backend (#8).
 
 const { KycStatus } = require('../state/session');
 
-async function startKyc(ctx) {
+/**
+ * @param {object} ctx
+ * @param {{kyc?: {startVerification: (p: object) => Promise<{verificationUrl: string}>}}} [deps]
+ */
+async function startKyc(ctx, deps = {}) {
   const { kycStatus } = ctx.session;
 
   if (kycStatus === KycStatus.PENDING) {
@@ -21,11 +27,28 @@ async function startKyc(ctx) {
     return;
   }
 
+  if (deps.kyc) {
+    try {
+      const { verificationUrl } = await deps.kyc.startVerification({
+        telegramId: ctx.from && ctx.from.id,
+      });
+      ctx.session.kycStatus = KycStatus.PENDING;
+      await ctx.reply(
+        'Before you can buy, we need to verify your identity (one time only).\n\n' +
+          `🔗 Verify here: ${verificationUrl}\n\n` +
+          'Once you are approved, send /buy again to continue.'
+      );
+    } catch (err) {
+      await ctx.reply('Sorry — we could not start verification right now. Please try /buy again.');
+    }
+    return;
+  }
+
+  // No KYC service wired yet (Synaps keys pending — see #8).
   ctx.session.kycStatus = KycStatus.PENDING;
-  // TODO(#8): create a Synaps verification session and send the real link.
   await ctx.reply(
     'Before you can buy, we need to verify your identity (one time only).\n\n' +
-      '🔗 Verification link: _placeholder — Synaps integration in #8_\n\n' +
+      '🔗 Verification link: _pending Synaps configuration (#8)_\n\n' +
       'Once you are approved, send /buy again to continue.',
     { parse_mode: 'Markdown' }
   );

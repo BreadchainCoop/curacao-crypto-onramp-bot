@@ -4,6 +4,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const express = require('express');
 const { createSentooWebhookRouter } = require('./routes/sentoo');
+const { createKycWebhookRouter } = require('./routes/kyc');
 
 /**
  * Build the Express app from injected dependencies. Pure — no env access, no
@@ -13,7 +14,16 @@ function createApp(deps) {
   const app = express();
   app.get('/health', (_req, res) => res.json({ ok: true }));
   app.use('/webhook/sentoo', createSentooWebhookRouter(deps));
-  // TODO(#8): app.use('/webhook/kyc', createKycWebhookRouter(...))
+  if (deps.users) {
+    app.use(
+      '/webhook/kyc',
+      createKycWebhookRouter({
+        users: deps.users,
+        webhookSecret: deps.kycWebhookSecret,
+        logger: deps.logger,
+      })
+    );
+  }
   return app;
 }
 
@@ -22,13 +32,16 @@ function startFromEnv() {
   const { ordersFromEnv } = require('./services/orders');
   const { escrowFromEnv } = require('./services/escrow');
   const { notifierFromEnv } = require('./services/notifier');
+  const { usersFromEnv } = require('./services/users');
 
   const deps = {
     sentoo: sentooFromEnv(),
     orders: ordersFromEnv(),
     escrow: escrowFromEnv(),
     notifier: notifierFromEnv(),
+    users: usersFromEnv(),
     webhookToken: process.env.SENTOO_WEBHOOK_SECRET || null,
+    kycWebhookSecret: process.env.SYNAPS_WEBHOOK_SECRET || null,
   };
 
   const app = createApp(deps);

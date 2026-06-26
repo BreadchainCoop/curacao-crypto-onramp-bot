@@ -59,7 +59,7 @@ function createBot(token, opts = {}) {
 
   bot.command('buy', async (ctx) => {
     const gate = resolveBuyGate(ctx.session);
-    if (gate.action === 'kyc') return startKyc(ctx);
+    if (gate.action === 'kyc') return startKyc(ctx, { kyc: opts.kyc });
     if (gate.action === 'wallet') return wallet.promptWallet(ctx);
     return buy.startBuy(ctx);
   });
