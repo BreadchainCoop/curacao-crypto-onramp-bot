@@ -19,6 +19,8 @@ function initialSession() {
     pendingOrderId: null,
     // Transient flow cursor: null, or { name: 'wallet'|'buy', step, data }.
     flow: null,
+    // Admin: pending refund awaiting /refund_confirm, or null.
+    adminRefund: null,
   };
 }
 

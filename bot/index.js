@@ -8,6 +8,7 @@ const { initialSession, resolveBuyGate } = require('./state/session');
 const { startKyc } = require('./flows/kyc');
 const wallet = require('./flows/wallet');
 const buy = require('./flows/buy');
+const { createAdminHandlers } = require('./flows/admin');
 
 const WELCOME =
   '👋 Welcome to the Curaçao Crypto On-Ramp.\n\n' +
@@ -37,13 +38,24 @@ function renderStatus(s) {
  * Build a fully-wired bot. Pure factory — constructs and configures the bot but
  * does NOT connect to Telegram, so it is safe to import in tests.
  */
-function createBot(token) {
+function createBot(token, opts = {}) {
   const bot = new Bot(token);
   bot.use(session({ initial: initialSession }));
 
   bot.command('start', (ctx) => ctx.reply(WELCOME));
   bot.command('help', (ctx) => ctx.reply(HELP));
   bot.command('status', (ctx) => ctx.reply(renderStatus(ctx.session)));
+
+  // Operator-only commands (Issue #10) — registered only when admin deps are
+  // provided. Handlers silently ignore non-admin users.
+  if (opts.admin) {
+    const admin = createAdminHandlers(opts.admin);
+    bot.command('escrow_balance', admin.escrowBalance);
+    bot.command('orders', admin.listOrders);
+    bot.command('refund', admin.refundStart);
+    bot.command('refund_confirm', admin.refundConfirm);
+    bot.command('refund_cancel', admin.refundCancel);
+  }
 
   bot.command('buy', async (ctx) => {
     const gate = resolveBuyGate(ctx.session);
@@ -85,7 +97,17 @@ function startFromEnv() {
     console.error('TELEGRAM_BOT_TOKEN is not set. Copy .env.example to .env and fill it in.');
     process.exit(1);
   }
-  const bot = createBot(token);
+  // Wire operator commands only if an admin is configured.
+  let admin = null;
+  const adminId = process.env.ADMIN_TELEGRAM_ID;
+  if (adminId) {
+    const { escrowOperatorFromEnv, ordersAdminFromEnv } = require('./services/operator');
+    admin = { adminId, escrow: escrowOperatorFromEnv(), orders: ordersAdminFromEnv() };
+  } else {
+    console.warn('ADMIN_TELEGRAM_ID not set — operator commands are disabled.');
+  }
+
+  const bot = createBot(token, { admin });
   bot.start({
     onStart: (me) => console.log(`Bot @${me.username} is running.`),
   });
