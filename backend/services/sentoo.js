@@ -22,11 +22,68 @@ function isPaidStatus(status) {
  * @param {string} opts.secret    sent as X-SENTOO-SECRET.
  * @param {typeof fetch} [opts.fetchImpl] injectable for tests.
  */
-function createSentooClient({ baseUrl, merchantId, secret, fetchImpl = fetch }) {
+function createSentooClient({ baseUrl, merchantId, secret, defaultCurrency = 'XCG', defaultReturnUrl, fetchImpl = fetch }) {
   if (!baseUrl || !merchantId || !secret) {
     throw new Error('Sentoo client requires baseUrl, merchantId, and secret');
   }
   const host = baseUrl.replace(/\/+$/, '');
+
+  /**
+   * Create a Sentoo payment transaction and return the hosted payment URL.
+   *
+   * The webhook ("Payment status URL") is configured in the Sentoo merchant
+   * portal, not per-transaction; `returnUrl` here is the browser redirect after
+   * payment. We carry our internal order id in the description and return URL so
+   * the payment is traceable both ways; the webhook then matches on the Sentoo
+   * transaction id we store on the order.
+   *
+   * @param {object} p
+   * @param {string} p.orderId      our internal order id (the reference)
+   * @param {number} p.amountXcg    amount in XCG (decimal guilders)
+   * @param {string} p.description
+   * @param {string} [p.currency]
+   * @param {string} [p.returnUrl]
+   * @param {string} [p.customer]   optional customer reference
+   * @param {string} [p.expiresAt]  optional expiry (Sentoo format)
+   * @returns {Promise<{transactionId: string, paymentUrl: string, qrCode: string}>}
+   */
+  async function createPayment({ orderId, amountXcg, description, currency, returnUrl, customer, expiresAt }) {
+    // TODO(#6): confirm amount units against the authenticated docs. Sentoo's
+    // amount is an integer; we send minor units (XCG cents).
+    const amountMinor = Math.round(Number(amountXcg) * 100);
+    const params = new URLSearchParams({
+      sentoo_merchant: merchantId,
+      sentoo_amount: String(amountMinor),
+      sentoo_description: description ?? `Order ${orderId}`,
+      sentoo_currency: currency ?? defaultCurrency,
+      sentoo_return_url: returnUrl ?? defaultReturnUrl ?? '',
+    });
+    if (orderId) params.append('sentoo_reference', orderId);
+    if (customer) params.append('sentoo_customer', customer);
+    if (expiresAt) params.append('sentoo_expires', expiresAt);
+
+    const resp = await fetchImpl(`${host}/v1/payment/new`, {
+      method: 'POST',
+      headers: {
+        'X-SENTOO-SECRET': secret,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params,
+    });
+    if (!resp.ok) {
+      throw new Error(`Sentoo payment creation failed: HTTP ${resp.status}`);
+    }
+    const body = await resp.json();
+    const success = body && body.success;
+    if (!success || !success.data || !success.data.url) {
+      throw new Error('Sentoo payment creation returned an unexpected response');
+    }
+    return {
+      transactionId: success.message,
+      paymentUrl: success.data.url,
+      qrCode: success.data.qr_code,
+    };
+  }
 
   /** Authoritative status re-fetch — the trust anchor for the webhook. */
   async function getTransactionStatus(transactionId) {
@@ -42,7 +99,7 @@ function createSentooClient({ baseUrl, merchantId, secret, fetchImpl = fetch }) 
     return body && body.success ? body.success.message : null;
   }
 
-  return { getTransactionStatus };
+  return { createPayment, getTransactionStatus };
 }
 
 function sentooFromEnv(env = process.env) {
@@ -50,6 +107,7 @@ function sentooFromEnv(env = process.env) {
     baseUrl: env.SENTOO_BASE_URL,
     merchantId: env.SENTOO_MERCHANT_ID,
     secret: env.SENTOO_API_KEY,
+    defaultReturnUrl: env.SENTOO_RETURN_URL,
   });
 }
 

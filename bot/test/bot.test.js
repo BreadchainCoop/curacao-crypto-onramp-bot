@@ -102,6 +102,39 @@ test('renderStatus reflects the session', () => {
   assert.match(renderStatus(s), /0xbbbb/i);
 });
 
+test('buy.confirm with a payments service sends a Sentoo link tied to the order id', async () => {
+  const s = initialSession();
+  s.flow = { name: 'buy', step: 'awaiting_confirm', data: { usdcAmount: 100, totalXcg: 186.55 } };
+  const ctx = mockCtx(s, '/confirm');
+  ctx.from = { id: 7 };
+  const payments = {
+    calls: [],
+    createForOrder: async (p) => {
+      payments.calls.push(p);
+      return { paymentUrl: 'https://pay.test/xyz' };
+    },
+  };
+  await buy.confirm(ctx, { payments });
+
+  assert.equal(payments.calls.length, 1);
+  assert.equal(payments.calls[0].amountXcg, 186.55);
+  assert.ok(payments.calls[0].orderId);
+  assert.equal(s.pendingOrderId, payments.calls[0].orderId); // reference == internal order id
+  assert.match(ctx.replies[0].text, /pay\.test\/xyz/);
+});
+
+test('buy.confirm clears the pending order if payment creation fails', async () => {
+  const s = initialSession();
+  s.flow = { name: 'buy', step: 'awaiting_confirm', data: { usdcAmount: 100, totalXcg: 186.55 } };
+  const ctx = mockCtx(s, '/confirm');
+  ctx.from = { id: 7 };
+  const payments = { createForOrder: async () => { throw new Error('sentoo down'); } };
+  await buy.confirm(ctx, { payments });
+
+  assert.equal(s.pendingOrderId, null);
+  assert.match(ctx.replies[0].text, /could not create/i);
+});
+
 test('createBot builds a bot without connecting to Telegram', () => {
   const bot = createBot('123456:fake-token-for-tests');
   assert.ok(bot);

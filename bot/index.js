@@ -64,7 +64,7 @@ function createBot(token, opts = {}) {
     return buy.startBuy(ctx);
   });
 
-  bot.command('confirm', (ctx) => buy.confirm(ctx));
+  bot.command('confirm', (ctx) => buy.confirm(ctx, { payments: opts.payments }));
   bot.command('cancel', (ctx) => buy.cancel(ctx));
 
   // TODO(#7): create a Privy embedded wallet instead of asking for an address.

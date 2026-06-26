@@ -5,6 +5,7 @@
 // TODO(#6): generate a real Sentoo payment link on /confirm.
 // TODO(#11): create a real order + drive status transitions.
 
+const crypto = require('crypto');
 const { quoteUsdcPurchase, loadFxConfig } = require('../lib/fx');
 
 async function startBuy(ctx) {
@@ -28,24 +29,58 @@ async function handleAmount(ctx) {
     return;
   }
 
-  ctx.session.flow = { name: 'buy', step: 'awaiting_confirm', data: { usdcAmount: usdc } };
+  ctx.session.flow = {
+    name: 'buy',
+    step: 'awaiting_confirm',
+    data: { usdcAmount: usdc, totalXcg: quote.totalXcg },
+  };
   await ctx.reply(formatQuote(quote), { parse_mode: 'HTML' });
 }
 
-async function confirm(ctx) {
+/**
+ * Confirm the order. With an injected `payments` service, creates a real Sentoo
+ * payment link (carrying our internal order id as the reference) and sends it.
+ * Without one (no keys configured yet), falls back to a placeholder.
+ * @param {object} ctx
+ * @param {{payments?: {createForOrder: (p: object) => Promise<{paymentUrl: string}>}}} [deps]
+ */
+async function confirm(ctx, deps = {}) {
   const flow = ctx.session.flow;
   if (!(flow && flow.name === 'buy' && flow.step === 'awaiting_confirm')) {
     await ctx.reply('Nothing to confirm right now. Send /buy to start an order.');
     return;
   }
 
-  // TODO(#6/#5): create a Sentoo payment link and a real order record.
-  const orderId = `stub_${Date.now()}`;
+  const { usdcAmount, totalXcg } = flow.data;
+  const orderId = crypto.randomUUID();
   ctx.session.pendingOrderId = orderId;
   ctx.session.flow = null;
+
+  if (deps.payments) {
+    try {
+      const { paymentUrl } = await deps.payments.createForOrder({
+        orderId,
+        amountXcg: totalXcg,
+        usdcAmount,
+        telegramId: ctx.from && ctx.from.id,
+      });
+      await ctx.reply(
+        `🧾 Order <code>${orderId}</code> — ${usdcAmount} USDC.\n` +
+          `💳 Pay <b>${totalXcg.toFixed(2)} XCG</b> here:\n${paymentUrl}\n\n` +
+          "You'll get a confirmation here once your payment is received.",
+        { parse_mode: 'HTML' }
+      );
+    } catch (err) {
+      ctx.session.pendingOrderId = null;
+      await ctx.reply('Sorry — we could not create a payment link right now. Please try /buy again.');
+    }
+    return;
+  }
+
+  // No payments service wired (keys/order persistence pending — see #6).
   await ctx.reply(
-    `🧾 Order <code>${orderId}</code> created for ${flow.data.usdcAmount} USDC.\n` +
-      '💳 Payment link: <i>Sentoo integration in #6</i>\n\n' +
+    `🧾 Order <code>${orderId}</code> created for ${usdcAmount} USDC.\n` +
+      '💳 Payment link: <i>Sentoo integration pending configuration (#6)</i>\n\n' +
       "Once your payment is received, you'll get a confirmation here with the transaction hash.",
     { parse_mode: 'HTML' }
   );
