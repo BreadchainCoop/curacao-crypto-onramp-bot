@@ -25,7 +25,7 @@ A Telegram bot that lets users in Curaçao, Aruba, and Bonaire buy USDC stableco
 | Payment rail | Sentoo REST API (sandbox) |
 | RPC | Alchemy (Base Sepolia) |
 | Database | Supabase (Postgres) |
-| Hosting | Railway |
+| Hosting | Render (backend) — see [docs/DEPLOY.md](docs/DEPLOY.md) |
 
 ## Monorepo structure
 

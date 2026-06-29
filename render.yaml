@@ -1,0 +1,52 @@
+# Render Blueprint — deploys the /backend webhook server.
+# Docs: https://render.com/docs/blueprint-spec
+#
+# Only the BACKEND runs here. The Telegram bot (/bot) uses long-polling and runs
+# locally for the MVP (Render background workers aren't on the free plan). All
+# values below are set in the Render dashboard, not committed — `sync: false`
+# means "prompt me in the dashboard"; the few non-secret defaults are inline.
+
+services:
+  - type: web
+    name: curacao-onramp-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install
+    startCommand: node index.js
+    healthCheckPath: /health
+    autoDeploy: true # redeploys on every push to the connected branch (main)
+    envVars:
+      # ── Secrets (set in the Render dashboard) ──
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: SENTOO_API_KEY
+        sync: false
+      - key: SENTOO_MERCHANT_ID
+        sync: false
+      - key: SENTOO_WEBHOOK_SECRET
+        sync: false
+      - key: SYNAPS_WEBHOOK_SECRET
+        sync: false
+      - key: RPC_URL
+        sync: false
+      - key: ADMIN_WALLET_PRIVATE_KEY
+        sync: false
+      - key: ESCROW_CONTRACT_ADDRESS
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # ── Non-secret config (override in the dashboard if needed) ──
+      - key: SENTOO_BASE_URL
+        value: https://api.sentoo.io
+      - key: WEBHOOK_RATE_MAX
+        value: "120"
+      - key: WEBHOOK_RATE_WINDOW_MS
+        value: "60000"
+      - key: ORDER_TTL_MINUTES
+        value: "30"
+      - key: EXPIRY_SWEEP_MS
+        value: "60000"
+      # PORT is provided by Render automatically (index.js reads process.env.PORT).
