@@ -32,4 +32,36 @@ async function handleAddress(ctx) {
   await ctx.reply(`✅ Wallet saved:\n${addr}\n\nSend /buy to continue.`);
 }
 
-module.exports = { promptWallet, handleAddress, isValidAddress };
+/**
+ * Create an embedded wallet via Privy (when injected), linked to the user's
+ * Telegram id, and store it on the session.
+ * @param {object} ctx
+ * @param {{privy?: {createWallet: (p: object) => Promise<{address: string}>}}} [deps]
+ */
+async function createWallet(ctx, deps = {}) {
+  if (ctx.session.walletAddress) {
+    await ctx.reply(`You already have a wallet:\n${ctx.session.walletAddress}`);
+    return;
+  }
+  if (!deps.privy) {
+    await ctx.reply(
+      'Automatic wallet creation is coming soon (Privy, #7). For now, paste your own 0x address.'
+    );
+    return;
+  }
+  try {
+    const { address } = await deps.privy.createWallet({
+      chainType: 'ethereum',
+      externalId: String(ctx.from && ctx.from.id),
+    });
+    ctx.session.walletAddress = address;
+    ctx.session.flow = null;
+    await ctx.reply(`✅ Wallet created for you:\n${address}\n\nSend /buy to continue.`);
+  } catch (err) {
+    await ctx.reply(
+      'Sorry — we could not create a wallet right now. You can paste your own 0x address instead.'
+    );
+  }
+}
+
+module.exports = { promptWallet, handleAddress, isValidAddress, createWallet };

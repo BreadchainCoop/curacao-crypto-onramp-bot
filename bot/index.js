@@ -67,10 +67,7 @@ function createBot(token, opts = {}) {
   bot.command('confirm', (ctx) => buy.confirm(ctx, { payments: opts.payments }));
   bot.command('cancel', (ctx) => buy.cancel(ctx));
 
-  // TODO(#7): create a Privy embedded wallet instead of asking for an address.
-  bot.command('wallet_new', (ctx) =>
-    ctx.reply('Automatic wallet creation is coming soon (Privy, #7). For now, paste your own 0x address.')
-  );
+  bot.command('wallet_new', (ctx) => wallet.createWallet(ctx, { privy: opts.privy }));
 
   // Route free-text input to whatever flow the user is currently in.
   bot.on('message:text', async (ctx) => {
@@ -107,7 +104,16 @@ function startFromEnv() {
     console.warn('ADMIN_TELEGRAM_ID not set — operator commands are disabled.');
   }
 
-  const bot = createBot(token, { admin });
+  // Privy embedded-wallet creation (no DB dependency — stores on the session).
+  let privy = null;
+  if (process.env.PRIVY_APP_ID && process.env.PRIVY_APP_SECRET) {
+    const { privyFromEnv } = require('./services/privy');
+    privy = privyFromEnv();
+  } else {
+    console.warn('PRIVY_APP_ID/PRIVY_APP_SECRET not set — /wallet_new will ask for an address.');
+  }
+
+  const bot = createBot(token, { admin, privy });
   bot.start({
     onStart: (me) => console.log(`Bot @${me.username} is running.`),
   });
