@@ -52,18 +52,17 @@ async function confirm(ctx, deps = {}) {
   }
 
   const { usdcAmount, totalXcg } = flow.data;
-  const orderId = crypto.randomUUID();
-  ctx.session.pendingOrderId = orderId;
   ctx.session.flow = null;
 
   if (deps.payments) {
     try {
-      const { paymentUrl } = await deps.payments.createForOrder({
-        orderId,
-        amountXcg: totalXcg,
+      const { orderId, paymentUrl } = await deps.payments.createForOrder({
         usdcAmount,
+        amountXcg: totalXcg,
+        walletAddress: ctx.session.walletAddress,
         telegramId: ctx.from && ctx.from.id,
       });
+      ctx.session.pendingOrderId = orderId;
       await ctx.reply(
         `🧾 Order <code>${orderId}</code> — ${usdcAmount} USDC.\n` +
           `💳 Pay <b>${totalXcg.toFixed(2)} XCG</b> here:\n${paymentUrl}\n\n` +
@@ -71,13 +70,14 @@ async function confirm(ctx, deps = {}) {
         { parse_mode: 'HTML' }
       );
     } catch (err) {
-      ctx.session.pendingOrderId = null;
       await ctx.reply('Sorry — we could not create a payment link right now. Please try /buy again.');
     }
     return;
   }
 
-  // No payments service wired (keys/order persistence pending — see #6).
+  // No payments service wired (Sentoo/Supabase pending configuration — see #6).
+  const orderId = crypto.randomUUID();
+  ctx.session.pendingOrderId = orderId;
   await ctx.reply(
     `🧾 Order <code>${orderId}</code> created for ${usdcAmount} USDC.\n` +
       '💳 Payment link: <i>Sentoo integration pending configuration (#6)</i>\n\n' +

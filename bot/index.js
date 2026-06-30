@@ -123,7 +123,23 @@ function startFromEnv() {
   const requireKyc = process.env.KYC_REQUIRED !== 'false';
   if (!requireKyc) console.warn('KYC_REQUIRED=false — /buy skips KYC (MVP mode).');
 
-  const bot = createBot(token, { admin, privy, requireKyc });
+  // Payment-link creation on /confirm needs Sentoo + Supabase; otherwise /confirm
+  // falls back to a placeholder.
+  let payments = null;
+  if (
+    process.env.SENTOO_API_KEY &&
+    process.env.SENTOO_MERCHANT_ID &&
+    process.env.SENTOO_BASE_URL &&
+    process.env.SUPABASE_URL &&
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  ) {
+    const { paymentsFromEnv } = require('./services/payments');
+    payments = paymentsFromEnv();
+  } else {
+    console.warn('Sentoo/Supabase not fully configured — /confirm uses a placeholder.');
+  }
+
+  const bot = createBot(token, { admin, privy, requireKyc, payments });
   bot.start({
     onStart: (me) => console.log(`Bot @${me.username} is running.`),
   });
