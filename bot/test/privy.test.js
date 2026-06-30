@@ -55,3 +55,32 @@ test('the app secret never appears in an error message', async () => {
     (err) => !/sec_1/.test(err.message)
   );
 });
+
+test('createUserWithWallet pregenerates a wallet linked to an email', async () => {
+  const captured = {};
+  const c = createPrivyClient({
+    appId: 'app_1',
+    appSecret: 'sec_1',
+    authBaseUrl: 'https://auth.privy.test/api',
+    fetchImpl: mockFetch(
+      {
+        body: {
+          id: 'did:privy:abc',
+          linked_accounts: [
+            { type: 'email', address: 'u@e.com' },
+            { type: 'wallet', chain_type: 'ethereum', address: '0xPREGEN' },
+          ],
+        },
+      },
+      captured
+    ),
+  });
+  const res = await c.createUserWithWallet({ email: 'u@e.com' });
+
+  assert.equal(captured.url, 'https://auth.privy.test/api/v1/users');
+  assert.equal(captured.init.headers['privy-app-id'], 'app_1');
+  const body = JSON.parse(captured.init.body);
+  assert.deepEqual(body.linked_accounts, [{ type: 'email', address: 'u@e.com' }]);
+  assert.equal(body.wallets[0].chain_type, 'ethereum');
+  assert.deepEqual(res, { userId: 'did:privy:abc', address: '0xPREGEN' });
+});

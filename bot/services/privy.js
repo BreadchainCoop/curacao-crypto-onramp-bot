@@ -8,12 +8,24 @@
 // The app secret is only ever used to build the Authorization header; it is
 // never logged or returned. Callers should log the wallet address/id at most.
 
-function createPrivyClient({ appId, appSecret, baseUrl = 'https://api.privy.io', fetchImpl = fetch }) {
+function createPrivyClient({
+  appId,
+  appSecret,
+  baseUrl = 'https://api.privy.io',
+  authBaseUrl = 'https://auth.privy.io/api',
+  fetchImpl = fetch,
+}) {
   if (!appId || !appSecret) {
     throw new Error('Privy client requires appId and appSecret');
   }
   const host = baseUrl.replace(/\/+$/, '');
+  const authHost = authBaseUrl.replace(/\/+$/, '');
   const authHeader = 'Basic ' + Buffer.from(`${appId}:${appSecret}`).toString('base64');
+  const jsonHeaders = {
+    Authorization: authHeader,
+    'privy-app-id': appId,
+    'Content-Type': 'application/json',
+  };
 
   /**
    * Create an embedded wallet linked to the user via `externalId`.
@@ -44,7 +56,36 @@ function createPrivyClient({ appId, appSecret, baseUrl = 'https://api.privy.io',
     return { id: data.id, address: data.address, chainType: data.chain_type };
   }
 
-  return { createWallet };
+  /**
+   * Pregenerate a user + embedded EVM wallet linked to an email. Because the
+   * wallet is owned by the email identity, the user can later log in to Privy
+   * with that email and control it — it is theirs, not app-custodied.
+   * Endpoint: POST {authBaseUrl}/v1/users.
+   * @param {{email: string}} params
+   * @returns {Promise<{userId: string, address: string}>}
+   */
+  async function createUserWithWallet({ email }) {
+    const resp = await fetchImpl(`${authHost}/v1/users`, {
+      method: 'POST',
+      headers: jsonHeaders,
+      body: JSON.stringify({
+        linked_accounts: [{ type: 'email', address: email }],
+        wallets: [{ chain_type: 'ethereum', wallet_index: 0 }],
+      }),
+    });
+    if (!resp.ok) {
+      throw new Error(`Privy user creation failed: HTTP ${resp.status}`);
+    }
+    const data = await resp.json();
+    const wallets = (data.linked_accounts || []).filter((a) => a.type === 'wallet' && a.address);
+    const wallet = wallets.find((a) => a.chain_type === 'ethereum') || wallets[0];
+    if (!wallet) {
+      throw new Error('Privy user creation returned no wallet');
+    }
+    return { userId: data.id, address: wallet.address };
+  }
+
+  return { createWallet, createUserWithWallet };
 }
 
 function privyFromEnv(env = process.env) {

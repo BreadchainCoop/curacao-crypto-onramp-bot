@@ -70,13 +70,16 @@ function createBot(token, opts = {}) {
   bot.command('confirm', (ctx) => buy.confirm(ctx, { payments: opts.payments }));
   bot.command('cancel', (ctx) => buy.cancel(ctx));
 
-  bot.command('wallet_new', (ctx) => wallet.createWallet(ctx, { privy: opts.privy }));
+  bot.command('wallet_new', (ctx) => wallet.startWalletCreation(ctx, { privy: opts.privy }));
 
   // Route free-text input to whatever flow the user is currently in.
   bot.on('message:text', async (ctx) => {
     const flow = ctx.session.flow;
     if (flow && flow.name === 'wallet' && flow.step === 'awaiting_address') {
       return wallet.handleAddress(ctx);
+    }
+    if (flow && flow.name === 'wallet' && flow.step === 'awaiting_email') {
+      return wallet.handleEmail(ctx, { privy: opts.privy });
     }
     if (flow && flow.name === 'buy' && flow.step === 'awaiting_amount') {
       return buy.handleAmount(ctx);

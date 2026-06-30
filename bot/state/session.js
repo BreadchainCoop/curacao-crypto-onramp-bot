@@ -21,6 +21,9 @@ function initialSession() {
     flow: null,
     // Admin: pending refund awaiting /refund_confirm, or null.
     adminRefund: null,
+    // Set when a wallet was pregenerated via Privy from the user's email.
+    email: null,
+    privyUserId: null,
   };
 }
 
