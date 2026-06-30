@@ -5,6 +5,7 @@
   "description": "Solidity escrow contract for the Curaçao crypto on-ramp (Hardhat)",
   "scripts": {
     "compile": "hardhat compile",
+    "deploy:amoy": "hardhat run scripts/deploy.js --network polygon-amoy",
     "deploy:base-sepolia": "hardhat run scripts/deploy.js --network base-sepolia"
   },
   "license": "MIT",
