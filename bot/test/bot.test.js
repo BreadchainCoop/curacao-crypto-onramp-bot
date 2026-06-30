@@ -41,6 +41,17 @@ test('resolveBuyGate gates /buy behind KYC, then wallet', () => {
   assert.equal(resolveBuyGate(ready).action, 'buy');
 });
 
+test('resolveBuyGate can skip KYC when requireKyc is false', () => {
+  const fresh = initialSession(); // kycStatus none, no wallet
+  // With KYC required (default), an un-verified user is gated at kyc.
+  assert.equal(resolveBuyGate(fresh).action, 'kyc');
+  // With KYC disabled, it falls straight through to the wallet step.
+  assert.equal(resolveBuyGate(fresh, { requireKyc: false }).action, 'wallet');
+  // And once a wallet exists, straight to buy.
+  const withWallet = { ...fresh, walletAddress: '0x' + '1'.repeat(40) };
+  assert.equal(resolveBuyGate(withWallet, { requireKyc: false }).action, 'buy');
+});
+
 test('wallet address validation', () => {
   assert.equal(wallet.isValidAddress('0x' + 'a'.repeat(40)), true);
   assert.equal(wallet.isValidAddress('0x123'), false);

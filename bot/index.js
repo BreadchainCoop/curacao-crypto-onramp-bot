@@ -42,6 +42,9 @@ function createBot(token, opts = {}) {
   const bot = new Bot(token);
   bot.use(session({ initial: initialSession }));
 
+  // KYC gate can be turned off while Synaps is parked (MVP).
+  const requireKyc = opts.requireKyc !== false;
+
   bot.command('start', (ctx) => ctx.reply(WELCOME));
   bot.command('help', (ctx) => ctx.reply(HELP));
   bot.command('status', (ctx) => ctx.reply(renderStatus(ctx.session)));
@@ -58,7 +61,7 @@ function createBot(token, opts = {}) {
   }
 
   bot.command('buy', async (ctx) => {
-    const gate = resolveBuyGate(ctx.session);
+    const gate = resolveBuyGate(ctx.session, { requireKyc });
     if (gate.action === 'kyc') return startKyc(ctx, { kyc: opts.kyc });
     if (gate.action === 'wallet') return wallet.promptWallet(ctx);
     return buy.startBuy(ctx);
@@ -113,7 +116,11 @@ function startFromEnv() {
     console.warn('PRIVY_APP_ID/PRIVY_APP_SECRET not set — /wallet_new will ask for an address.');
   }
 
-  const bot = createBot(token, { admin, privy });
+  // KYC is required unless explicitly disabled (Synaps parked for the MVP).
+  const requireKyc = process.env.KYC_REQUIRED !== 'false';
+  if (!requireKyc) console.warn('KYC_REQUIRED=false — /buy skips KYC (MVP mode).');
+
+  const bot = createBot(token, { admin, privy, requireKyc });
   bot.start({
     onStart: (me) => console.log(`Bot @${me.username} is running.`),
   });

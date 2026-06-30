@@ -29,10 +29,12 @@ function initialSession() {
  * KYC must be approved, then a wallet must exist, before a purchase can start.
  *
  * @param {object} session
+ * @param {{requireKyc?: boolean}} [opts] - set requireKyc=false to skip the KYC
+ *   gate (e.g. while Synaps is parked for the MVP).
  * @returns {{action: 'kyc'|'wallet'|'buy', reason?: string}}
  */
-function resolveBuyGate(session) {
-  if (session.kycStatus !== KycStatus.APPROVED) {
+function resolveBuyGate(session, { requireKyc = true } = {}) {
+  if (requireKyc && session.kycStatus !== KycStatus.APPROVED) {
     return { action: 'kyc', reason: `kyc_status=${session.kycStatus}` };
   }
   if (!session.walletAddress) {
