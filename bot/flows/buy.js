@@ -96,15 +96,18 @@ function formatQuote(q) {
   const f = (n) => n.toFixed(2);
   const lines = [
     `<b>Buy ${q.usdcAmount} USDC</b>`,
+    '',
     `Subtotal (${q.pegRate} XCG/USDC): ${f(q.subtotalXcg)} XCG`,
     `FX spread (${q.spread.pct}%): ${f(q.spread.amountXcg)} XCG`,
   ];
   if (q.fee.enabled) {
     lines.push(`Fee (${q.fee.pct}%, min ${f(q.fee.flatMinXcg)}): ${f(q.fee.amountXcg)} XCG`);
   }
-  lines.push(`<b>Total: ${f(q.totalXcg)} XCG</b>`);
+  lines.push('━━━━━━━━━━━━━━━');
+  lines.push(`💰 <b>You pay: ${f(q.totalXcg)} XCG</b>`);
+  lines.push(`🪙 You receive: ${q.usdcAmount} USDC`);
   lines.push('');
-  lines.push('Reply /confirm to get a payment link, or /cancel.');
+  lines.push(`Tap /confirm and I’ll send you a link to pay ${f(q.totalXcg)} XCG — or /cancel.`);
   return lines.join('\n');
 }
 

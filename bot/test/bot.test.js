@@ -85,7 +85,7 @@ test('buy.handleAmount quotes a valid amount and advances to confirm', async () 
   await buy.handleAmount(ctx);
   assert.equal(s.flow.step, 'awaiting_confirm');
   assert.equal(s.flow.data.usdcAmount, 100);
-  assert.match(ctx.replies[0].text, /Total:/);
+  assert.match(ctx.replies[0].text, /You pay: 186\.55 XCG/);
 });
 
 test('buy.handleAmount rejects a non-numeric amount', async () => {
