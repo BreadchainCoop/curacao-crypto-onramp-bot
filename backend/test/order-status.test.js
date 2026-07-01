@@ -9,6 +9,7 @@ const {
 
 test('allows the happy-path transitions', () => {
   assert.ok(canTransition('pending_payment', 'paid'));
+  assert.ok(canTransition('pending_payment', 'failed')); // Sentoo-reported payment failure
   assert.ok(canTransition('paid', 'releasing'));
   assert.ok(canTransition('releasing', 'complete'));
   assert.ok(canTransition('pending_payment', 'expired'));

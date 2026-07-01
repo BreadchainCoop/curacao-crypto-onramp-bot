@@ -8,11 +8,25 @@
 // TODO(#6): confirm against the authenticated Sentoo docs — exact paid-status
 // string, the sandbox host, and amount units for payment creation.
 
+// TODO(#6): confirm these exact status strings against the authenticated Sentoo
+// docs. Matching is defensive; anything unrecognised maps to 'pending' so we
+// never act on an ambiguous status.
 const PAID_STATUSES = new Set(['paid', 'success', 'completed', 'complete']);
+const FAILED_STATUSES = new Set(['failed', 'declined', 'error', 'cancelled', 'canceled', 'rejected']);
+const EXPIRED_STATUSES = new Set(['expired', 'timeout', 'timed_out']);
+
+/** Map a Sentoo status string to a payment outcome. */
+function mapPaymentStatus(status) {
+  const s = String(status).toLowerCase();
+  if (PAID_STATUSES.has(s)) return 'paid';
+  if (FAILED_STATUSES.has(s)) return 'failed';
+  if (EXPIRED_STATUSES.has(s)) return 'expired';
+  return 'pending';
+}
 
 /** True if a Sentoo status string means the payment succeeded. */
 function isPaidStatus(status) {
-  return status != null && PAID_STATUSES.has(String(status).toLowerCase());
+  return status != null && mapPaymentStatus(status) === 'paid';
 }
 
 /**
@@ -111,4 +125,4 @@ function sentooFromEnv(env = process.env) {
   });
 }
 
-module.exports = { createSentooClient, sentooFromEnv, isPaidStatus, PAID_STATUSES };
+module.exports = { createSentooClient, sentooFromEnv, isPaidStatus, mapPaymentStatus, PAID_STATUSES };

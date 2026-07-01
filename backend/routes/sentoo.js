@@ -8,7 +8,7 @@
 
 const express = require('express');
 const crypto = require('crypto');
-const { isPaidStatus } = require('../services/sentoo');
+const { mapPaymentStatus } = require('../services/sentoo');
 const { ORDER_STATUS, messageForStatus } = require('../domain/orderStatus');
 
 function safeEqual(a, b) {
@@ -22,10 +22,14 @@ function safeEqual(a, b) {
 async function safeNotify(notifier, logger, chatId, status, ctx) {
   const text = messageForStatus(status, ctx);
   if (!text) return;
+  await safeNotifyText(notifier, logger, chatId, text);
+}
+
+async function safeNotifyText(notifier, logger, chatId, text) {
   try {
     await notifier.notify(chatId, text);
   } catch (err) {
-    logger.error(`[sentoo] notify (${status}) failed for chat ${chatId}: ${err.message}`);
+    logger.error(`[sentoo] notify failed for chat ${chatId}: ${err.message}`);
   }
 }
 
@@ -61,8 +65,29 @@ function createSentooWebhookRouter({ sentoo, orders, escrow, notifier, webhookTo
 
       // Trust anchor: re-fetch authoritative status; never trust the webhook body.
       const status = await sentoo.getTransactionStatus(txId);
-      if (!isPaidStatus(status)) {
-        logger.info(`[sentoo] tx ${txId} status=${status} (not paid) order=${order.id}`);
+      const outcome = mapPaymentStatus(status);
+
+      if (outcome === 'failed') {
+        if (await orders.tryTransition(order.id, ORDER_STATUS.PENDING_PAYMENT, ORDER_STATUS.FAILED)) {
+          await safeNotifyText(
+            notifier,
+            logger,
+            order.user.telegramId,
+            '❌ Your payment didn’t go through. Send /buy to try again.'
+          );
+          logger.info(`[sentoo] order ${order.id} payment failed (status=${status})`);
+        }
+        return res.status(200).json({ ok: true });
+      }
+      if (outcome === 'expired') {
+        if (await orders.tryTransition(order.id, ORDER_STATUS.PENDING_PAYMENT, ORDER_STATUS.EXPIRED)) {
+          await safeNotify(notifier, logger, order.user.telegramId, ORDER_STATUS.EXPIRED);
+          logger.info(`[sentoo] order ${order.id} payment expired`);
+        }
+        return res.status(200).json({ ok: true });
+      }
+      if (outcome !== 'paid') {
+        logger.info(`[sentoo] tx ${txId} status=${status} (pending) order=${order.id}`);
         return res.status(200).json({ ok: true });
       }
 

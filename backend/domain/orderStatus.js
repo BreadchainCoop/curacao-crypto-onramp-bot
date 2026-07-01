@@ -19,7 +19,7 @@ const ORDER_STATUS = Object.freeze({
 
 // Legal transitions: from-status -> allowed to-statuses.
 const TRANSITIONS = Object.freeze({
-  pending_payment: ['paid', 'expired'],
+  pending_payment: ['paid', 'expired', 'failed'],
   paid: ['releasing', 'failed'],
   releasing: ['complete', 'failed'],
   complete: [],

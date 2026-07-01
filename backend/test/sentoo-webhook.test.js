@@ -115,6 +115,26 @@ test('idempotent: a duplicate webhook does not release twice', async () => {
   server.close();
 });
 
+test('marks the order failed when Sentoo reports a failed payment', async () => {
+  const { server, port, escrow, notifier, orders } = await makeServer({ status: 'failed' });
+  const res = await postWebhook(port);
+  assert.equal(res.status, 200);
+  assert.equal(escrow.calls.length, 0); // no release on a failed payment
+  assert.equal((await orders.getBySentooTxId('tx_1')).status, 'failed');
+  assert.equal(notifier.calls.length, 1);
+  assert.match(notifier.calls[0].text, /didn.t go through|try again/i);
+  server.close();
+});
+
+test('marks the order expired when Sentoo reports an expired payment', async () => {
+  const { server, port, escrow, orders } = await makeServer({ status: 'expired' });
+  const res = await postWebhook(port);
+  assert.equal(res.status, 200);
+  assert.equal(escrow.calls.length, 0);
+  assert.equal((await orders.getBySentooTxId('tx_1')).status, 'expired');
+  server.close();
+});
+
 test('marks the order failed if escrow release throws', async () => {
   const { server, port, orders, notifier } = await makeServer({ status: 'paid', releaseThrows: true });
   const res = await postWebhook(port);

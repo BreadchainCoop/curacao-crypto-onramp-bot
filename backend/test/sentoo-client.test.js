@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { createSentooClient, isPaidStatus } = require('../services/sentoo');
+const { createSentooClient, isPaidStatus, mapPaymentStatus } = require('../services/sentoo');
 
 // Capture the request and return a canned Sentoo response.
 function mockFetch(response, captured) {
@@ -87,4 +87,13 @@ test('isPaidStatus recognises paid variants only', () => {
   assert.ok(isPaidStatus('SUCCESS'));
   assert.equal(isPaidStatus('issued'), false);
   assert.equal(isPaidStatus(null), false);
+});
+
+test('mapPaymentStatus classifies paid/failed/expired/pending', () => {
+  assert.equal(mapPaymentStatus('paid'), 'paid');
+  assert.equal(mapPaymentStatus('COMPLETED'), 'paid');
+  assert.equal(mapPaymentStatus('failed'), 'failed');
+  assert.equal(mapPaymentStatus('Declined'), 'failed');
+  assert.equal(mapPaymentStatus('expired'), 'expired');
+  assert.equal(mapPaymentStatus('issued'), 'pending'); // in-progress / unknown
 });
