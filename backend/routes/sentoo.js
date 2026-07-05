@@ -1,10 +1,14 @@
 // POST /webhook/sentoo
 // Verifies Sentoo webhook signature, triggers escrow release on payment success
 //
-// Sentoo's webhook is a *ping* carrying only `transaction_id`; it is NOT a signed
-// payload. We never trust the body — instead we re-fetch the authoritative status
-// from the Sentoo API (X-SENTOO-SECRET) and act on that. An optional shared token
-// in the webhook URL (?token=…) adds a cheap layer against random POSTs.
+// Sentoo's webhook is a *ping* carrying only `transaction_id` (form-urlencoded);
+// it is NOT a signed payload and carries no status. We never trust the body —
+// instead we re-fetch the authoritative status from the Sentoo API
+// (X-SENTOO-SECRET) and act on that. An optional shared token in the webhook URL
+// (?token=…) adds a cheap layer against random POSTs.
+//
+// Sentoo retries with exponential backoff until it gets HTTP 200 with a body of
+// `success` or {"success":true}, so every ack MUST return { success: true }.
 
 const express = require('express');
 const crypto = require('crypto');
@@ -60,7 +64,15 @@ function createSentooWebhookRouter({ sentoo, orders, escrow, notifier, webhookTo
       const order = await orders.getBySentooTxId(txId);
       if (!order) {
         logger.warn(`[sentoo] unknown transaction_id ${txId}`);
-        return res.status(200).json({ ok: true }); // ack; nothing to do
+        return res.status(200).json({ success: true }); // ack; nothing to do
+      }
+
+      // Already handled (or in progress) — ack without spending a status fetch.
+      // Sentoo limits status fetches to 10 per hour per transaction, and delivers
+      // duplicate/out-of-order webhooks, so we only fetch while still pending.
+      if (order.status !== ORDER_STATUS.PENDING_PAYMENT) {
+        logger.info(`[sentoo] order ${order.id} already ${order.status}; acking`);
+        return res.status(200).json({ success: true });
       }
 
       // Trust anchor: re-fetch authoritative status; never trust the webhook body.
@@ -77,18 +89,18 @@ function createSentooWebhookRouter({ sentoo, orders, escrow, notifier, webhookTo
           );
           logger.info(`[sentoo] order ${order.id} payment failed (status=${status})`);
         }
-        return res.status(200).json({ ok: true });
+        return res.status(200).json({ success: true });
       }
       if (outcome === 'expired') {
         if (await orders.tryTransition(order.id, ORDER_STATUS.PENDING_PAYMENT, ORDER_STATUS.EXPIRED)) {
           await safeNotify(notifier, logger, order.user.telegramId, ORDER_STATUS.EXPIRED);
           logger.info(`[sentoo] order ${order.id} payment expired`);
         }
-        return res.status(200).json({ ok: true });
+        return res.status(200).json({ success: true });
       }
       if (outcome !== 'paid') {
         logger.info(`[sentoo] tx ${txId} status=${status} (pending) order=${order.id}`);
-        return res.status(200).json({ ok: true });
+        return res.status(200).json({ success: true });
       }
 
       // Idempotent claim: only one webhook may move pending_payment -> paid.
@@ -99,7 +111,7 @@ function createSentooWebhookRouter({ sentoo, orders, escrow, notifier, webhookTo
       );
       if (!claimed) {
         logger.info(`[sentoo] order ${order.id} already processed (status=${order.status})`);
-        return res.status(200).json({ ok: true });
+        return res.status(200).json({ success: true });
       }
       await safeNotify(notifier, logger, order.user.telegramId, ORDER_STATUS.PAID);
 
@@ -119,7 +131,7 @@ function createSentooWebhookRouter({ sentoo, orders, escrow, notifier, webhookTo
         // Operator handles failed orders (#10 refund/retry).
       }
 
-      return res.status(200).json({ ok: true });
+      return res.status(200).json({ success: true });
     } catch (err) {
       // Unexpected (DB/Sentoo) error — return 500 so Sentoo retries later.
       logger.error(`[sentoo] webhook error for tx ${txId}: ${err.message}`);

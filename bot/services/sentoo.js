@@ -19,12 +19,13 @@ function createSentooClient({ baseUrl, merchantId, secret, defaultCurrency = 'XC
       sentoo_currency: currency ?? defaultCurrency,
       sentoo_return_url: returnUrl ?? defaultReturnUrl ?? '',
     });
-    if (orderId) params.append('sentoo_reference', orderId);
-
+    // No arbitrary reference field in Sentoo — the order is linked via the
+    // transaction token it returns (stored as sentoo_transaction_id).
     const resp = await fetchImpl(`${host}/v1/payment/new`, {
       method: 'POST',
       headers: {
         'X-SENTOO-SECRET': secret,
+        accept: 'application/json',
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: params,

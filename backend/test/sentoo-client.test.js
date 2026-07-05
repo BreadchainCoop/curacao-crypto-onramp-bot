@@ -52,8 +52,9 @@ test('createPayment posts the right shape and returns the payment URL', async ()
   assert.equal(body.get('sentoo_amount'), '18655'); // minor units (cents)
   assert.equal(body.get('sentoo_currency'), 'XCG');
   assert.equal(body.get('sentoo_return_url'), 'https://t.me/the_bot');
-  // internal order id travels as the reference
-  assert.equal(body.get('sentoo_reference'), 'order-abc');
+  // Sentoo has no reference field — order linkage is via the returned token.
+  assert.equal(body.get('sentoo_reference'), null);
+  assert.equal(captured.init.headers['accept'], 'application/json');
 
   // parsed result
   assert.deepEqual(res, {

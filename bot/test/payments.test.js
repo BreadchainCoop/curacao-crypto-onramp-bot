@@ -67,6 +67,6 @@ test('the bot Sentoo client posts amount in minor units with the order reference
   assert.equal(captured.url, 'https://api.sentoo.test/v1/payment/new');
   assert.equal(captured.init.headers['X-SENTOO-SECRET'], 'sek');
   assert.equal(captured.init.body.get('sentoo_amount'), '18655'); // cents
-  assert.equal(captured.init.body.get('sentoo_reference'), 'order-1');
+  assert.equal(captured.init.body.get('sentoo_reference'), null); // no such field
   assert.deepEqual(res, { transactionId: 'tx_1', paymentUrl: 'https://pay/1', qrCode: 'q' });
 });

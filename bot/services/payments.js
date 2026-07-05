@@ -63,7 +63,8 @@ function createPaymentsService({ repo, sentoo, logger = console }) {
     const { transactionId, paymentUrl } = await sentoo.createPayment({
       orderId,
       amountXcg,
-      description: `On-ramp order ${orderId}`,
+      // Sentoo truncates the description to ~32 chars and strips diacritics.
+      description: `Curacao on-ramp #${String(orderId).slice(0, 8)}`,
     });
     await repo.setSentooTransaction(orderId, transactionId);
     logger.info(`[payments] order ${orderId} -> sentoo tx ${transactionId}`);

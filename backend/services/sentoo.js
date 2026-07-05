@@ -72,7 +72,8 @@ function createSentooClient({ baseUrl, merchantId, secret, defaultCurrency = 'XC
       sentoo_currency: currency ?? defaultCurrency,
       sentoo_return_url: returnUrl ?? defaultReturnUrl ?? '',
     });
-    if (orderId) params.append('sentoo_reference', orderId);
+    // Note: Sentoo has no arbitrary reference field — the order is linked via the
+    // transaction token it returns (we store it as sentoo_transaction_id).
     if (customer) params.append('sentoo_customer', customer);
     if (expiresAt) params.append('sentoo_expires', expiresAt);
 
@@ -80,6 +81,7 @@ function createSentooClient({ baseUrl, merchantId, secret, defaultCurrency = 'XC
       method: 'POST',
       headers: {
         'X-SENTOO-SECRET': secret,
+        accept: 'application/json',
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: params,
