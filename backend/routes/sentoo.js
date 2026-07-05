@@ -57,6 +57,13 @@ function createSentooWebhookRouter({ sentoo, orders, escrow, notifier, webhookTo
 
     const txId = req.body && req.body.transaction_id;
     if (!txId) {
+      // Refund webhooks (refund_id) hit this same URL. We don't process Sentoo
+      // refunds (refunds are on-chain, #10), so ack gracefully — a 400 would make
+      // Sentoo retry the refund webhook forever.
+      if (req.body && req.body.refund_id) {
+        logger.info(`[sentoo] refund webhook ${req.body.refund_id} — acked, not processed`);
+        return res.status(200).json({ success: true });
+      }
       return res.status(400).json({ error: 'missing transaction_id' });
     }
 

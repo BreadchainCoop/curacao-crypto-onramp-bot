@@ -68,6 +68,13 @@ test('rejects a webhook with no transaction_id', async () => {
   server.close();
 });
 
+test('acks a refund webhook (refund_id) instead of 400-ing it', async () => {
+  const { server, port } = await makeServer();
+  const res = await postWebhook(port, { body: { refund_id: 'r_1' } });
+  assert.equal(res.status, 200); // not 400 — else Sentoo would retry forever
+  server.close();
+});
+
 test('acks an unknown transaction_id without releasing', async () => {
   const { server, port, escrow } = await makeServer();
   const res = await postWebhook(port, { body: { transaction_id: 'tx_unknown' } });
