@@ -2,6 +2,20 @@
 // Mirrors backend/services/sentoo.js createPayment (the backend also does the
 // webhook status re-fetch). TODO: extract a shared package.
 
+// Pull Sentoo's error message + reference out of a failed response, for logs.
+async function sentooError(resp) {
+  try {
+    const body = await resp.json();
+    if (body && body.error) {
+      const ref = body.error.reference ? ` (ref ${body.error.reference})` : '';
+      return ` — ${body.error.message}${ref}`;
+    }
+  } catch {
+    /* non-JSON body */
+  }
+  return '';
+}
+
 function createSentooClient({ baseUrl, merchantId, secret, defaultCurrency = 'XCG', defaultReturnUrl, fetchImpl = fetch }) {
   if (!baseUrl || !merchantId || !secret) {
     throw new Error('Sentoo client requires baseUrl, merchantId, and secret');
@@ -31,7 +45,7 @@ function createSentooClient({ baseUrl, merchantId, secret, defaultCurrency = 'XC
       body: params,
     });
     if (!resp.ok) {
-      throw new Error(`Sentoo payment creation failed: HTTP ${resp.status}`);
+      throw new Error(`Sentoo payment creation failed: HTTP ${resp.status}${await sentooError(resp)}`);
     }
     const body = await resp.json();
     const success = body && body.success;

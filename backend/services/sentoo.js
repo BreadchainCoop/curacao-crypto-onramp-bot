@@ -29,6 +29,20 @@ function isPaidStatus(status) {
   return status != null && mapPaymentStatus(status) === 'paid';
 }
 
+// Pull Sentoo's error message + reference out of a failed response, for logs.
+async function sentooError(resp) {
+  try {
+    const body = await resp.json();
+    if (body && body.error) {
+      const ref = body.error.reference ? ` (ref ${body.error.reference})` : '';
+      return ` — ${body.error.message}${ref}`;
+    }
+  } catch {
+    /* non-JSON body */
+  }
+  return '';
+}
+
 /**
  * @param {object} opts
  * @param {string} opts.baseUrl   API host, no trailing /v1 (client appends it).
@@ -87,7 +101,7 @@ function createSentooClient({ baseUrl, merchantId, secret, defaultCurrency = 'XC
       body: params,
     });
     if (!resp.ok) {
-      throw new Error(`Sentoo payment creation failed: HTTP ${resp.status}`);
+      throw new Error(`Sentoo payment creation failed: HTTP ${resp.status}${await sentooError(resp)}`);
     }
     const body = await resp.json();
     const success = body && body.success;
