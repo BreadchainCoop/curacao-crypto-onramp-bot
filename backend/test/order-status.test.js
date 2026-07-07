@@ -40,6 +40,15 @@ test('produces user messages only for notifiable states', () => {
     messageForStatus(ORDER_STATUS.COMPLETE, { amountUsdc: 100, txHash: '0xabc' }),
     /100 USDC.*0xabc/s
   );
+  // With a txUrl, the receipt is a clickable explorer link.
+  assert.match(
+    messageForStatus(ORDER_STATUS.COMPLETE, {
+      amountUsdc: 100,
+      txHash: '0xabc',
+      txUrl: 'https://amoy.polygonscan.com/tx/0xabc',
+    }),
+    /amoy\.polygonscan\.com\/tx\/0xabc/
+  );
   assert.match(messageForStatus(ORDER_STATUS.FAILED), /problem|notified/i);
   assert.match(messageForStatus(ORDER_STATUS.EXPIRED), /expired/i);
   // No message for intermediate / non-notifiable states.

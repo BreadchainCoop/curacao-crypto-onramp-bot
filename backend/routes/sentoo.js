@@ -46,7 +46,15 @@ async function safeNotifyText(notifier, logger, chatId, text) {
  * @param {string|null} [deps.webhookToken] optional shared URL token
  * @param {object} [deps.logger]  defaults to console
  */
-function createSentooWebhookRouter({ sentoo, orders, escrow, notifier, webhookToken = null, logger = console }) {
+function createSentooWebhookRouter({
+  sentoo,
+  orders,
+  escrow,
+  notifier,
+  webhookToken = null,
+  explorerTxBase = 'https://amoy.polygonscan.com/tx/',
+  logger = console,
+}) {
   const router = express.Router();
 
   router.post('/', express.urlencoded({ extended: false }), async (req, res) => {
@@ -129,6 +137,7 @@ function createSentooWebhookRouter({ sentoo, orders, escrow, notifier, webhookTo
         await safeNotify(notifier, logger, order.user.telegramId, ORDER_STATUS.COMPLETE, {
           amountUsdc: order.amountUsdc,
           txHash,
+          txUrl: `${explorerTxBase}${txHash}`,
         });
         logger.info(`[sentoo] order ${order.id} complete tx=${txHash}`);
       } catch (releaseErr) {

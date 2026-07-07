@@ -52,7 +52,8 @@ function messageForStatus(status, ctx = {}) {
     case ORDER_STATUS.PAID:
       return '💸 Payment received — releasing your USDC now…';
     case ORDER_STATUS.COMPLETE:
-      return `✅ ${ctx.amountUsdc} USDC sent to your wallet.\nTransaction: ${ctx.txHash}`;
+      // ctx.txUrl is the block-explorer link; falls back to the raw hash.
+      return `✅ ${ctx.amountUsdc} USDC sent to your wallet.\n🔗 View receipt: ${ctx.txUrl || ctx.txHash}`;
     case ORDER_STATUS.FAILED:
       return '⚠️ We hit a problem releasing your USDC. Our team has been notified and will sort it out.';
     case ORDER_STATUS.EXPIRED:
