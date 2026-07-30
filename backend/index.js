@@ -47,6 +47,7 @@ function startFromEnv() {
   const { escrowFromEnv } = require('./services/escrow');
   const { notifierFromEnv } = require('./services/notifier');
   const { usersFromEnv } = require('./services/users');
+  const { activeChain } = require('../chains');
 
   const deps = {
     sentoo: sentooFromEnv(),
@@ -56,7 +57,8 @@ function startFromEnv() {
     users: usersFromEnv(),
     webhookToken: process.env.SENTOO_WEBHOOK_SECRET || null,
     kycWebhookSecret: process.env.SYNAPS_WEBHOOK_SECRET || null,
-    explorerTxBase: process.env.EXPLORER_TX_BASE_URL || 'https://amoy.polygonscan.com/tx/',
+    // Receipt link uses the active chain's explorer (falls back to an override).
+    explorerTxBase: process.env.EXPLORER_TX_BASE_URL || `${activeChain().explorer}/tx/`,
     rateLimit: {
       windowMs: Number(process.env.WEBHOOK_RATE_WINDOW_MS) || 60_000,
       max: Number(process.env.WEBHOOK_RATE_MAX) || 120,
