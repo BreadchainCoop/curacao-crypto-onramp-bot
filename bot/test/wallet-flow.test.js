@@ -37,6 +37,34 @@ test('startWalletCreation no-ops if a wallet already exists', async () => {
   assert.match(ctx.replies[0], /already have a wallet/i);
 });
 
+test('promptUseWallet shows the known address for confirmation', async () => {
+  const s = initialSession();
+  s.walletAddress = '0x' + 'c'.repeat(40);
+  const ctx = mockCtx(s);
+  await wallet.promptUseWallet(ctx);
+  assert.match(ctx.replies[0], new RegExp(s.walletAddress));
+  assert.match(ctx.replies[0], /use this address|change/i);
+});
+
+test('handleAddress persists the wallet via the users service (keyed by telegram id)', async () => {
+  const s = initialSession();
+  const addr = '0x' + 'a'.repeat(40);
+  const ctx = mockCtx(s, addr, 4242);
+  const saved = [];
+  const users = { saveWallet: async (id, address) => saved.push({ id, address }) };
+  await wallet.handleAddress(ctx, { users });
+  assert.equal(s.walletAddress, addr);
+  assert.deepEqual(saved, [{ id: 4242, address: addr }]);
+});
+
+test('handleAddress still works (and does not throw) when no users service is injected', async () => {
+  const s = initialSession();
+  const addr = '0x' + 'b'.repeat(40);
+  const ctx = mockCtx(s, addr);
+  await wallet.handleAddress(ctx);
+  assert.equal(s.walletAddress, addr);
+});
+
 test('handleEmail pregenerates a Privy wallet linked to the email', async () => {
   const s = initialSession();
   s.flow = { name: 'wallet', step: 'awaiting_email' };

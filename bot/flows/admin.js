@@ -8,21 +8,39 @@
 //   orders: { listRecent(limit) -> [{id,status,amountUsdc,amountXcg,createdAt}],
 //             getById(id) -> order|null, markRefunded(id) -> boolean }
 
+const kb = require('../lib/keyboards');
+
 function isAdmin(ctx, adminId) {
   return adminId != null && ctx.from != null && String(ctx.from.id) === String(adminId);
 }
 
-function createAdminHandlers({ adminId, escrow, orders, logger = console }) {
+/** Format an ISO timestamp as "YYYY-MM-DD HH:MM UTC" (stable, timezone-explicit). */
+function formatDate(iso) {
+  if (!iso) return 'unknown';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'unknown';
+  return d.toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+}
+
+function createAdminHandlers({ adminId, escrow, orders, chain = null, logger = console }) {
   // Wrap a handler so non-admins are silently ignored (no reply at all).
   const guard = (handler) => async (ctx) => {
     if (!isAdmin(ctx, adminId)) return;
     return handler(ctx);
   };
 
+  const showMenu = guard(async (ctx) => {
+    await ctx.reply('🛠 Admin menu — pick an action:', { reply_markup: kb.adminMenu() });
+  });
+
   const escrowBalance = guard(async (ctx) => {
     try {
       const bal = await escrow.balance();
-      await ctx.reply(`🏦 Escrow balance: ${bal} USDC`);
+      const net = chain ? ` on ${chain.name}` : '';
+      const link = chain && chain.explorer && chain.escrowAddress
+        ? `\n${chain.explorer}/address/${chain.escrowAddress}`
+        : '';
+      await ctx.reply(`🏦 Escrow balance${net}: ${bal} USDC${link}`);
     } catch (err) {
       logger.error(`[admin] balance failed: ${err.message}`);
       await ctx.reply(`Could not read escrow balance: ${err.message}`);
@@ -36,9 +54,27 @@ function createAdminHandlers({ adminId, escrow, orders, logger = console }) {
       return;
     }
     const lines = rows.map(
-      (o) => `${o.id.slice(0, 8)} · ${o.amountUsdc} USDC · ${o.status}`
+      (o) =>
+        `${o.id.slice(0, 8)} · ${o.amountUsdc} USDC · ${o.status}\n` +
+        `   🕒 ${formatDate(o.createdAt)}`
     );
     await ctx.reply('Last 10 orders:\n' + lines.join('\n'));
+  });
+
+  const totalFees = guard(async (ctx) => {
+    try {
+      const { feeXcg, spreadXcg, count } = await orders.totalFees();
+      await ctx.reply(
+        `💰 Fees accrued across ${count} paid order(s):\n` +
+          `• Platform fees: ${feeXcg.toFixed(2)} XCG\n` +
+          `• FX spread: ${spreadXcg.toFixed(2)} XCG\n` +
+          `• <b>Combined: ${(feeXcg + spreadXcg).toFixed(2)} XCG</b>`,
+        { parse_mode: 'HTML' }
+      );
+    } catch (err) {
+      logger.error(`[admin] total fees failed: ${err.message}`);
+      await ctx.reply(`Could not compute total fees: ${err.message}`);
+    }
   });
 
   const refundStart = guard(async (ctx) => {
@@ -54,8 +90,8 @@ function createAdminHandlers({ adminId, escrow, orders, logger = console }) {
     }
     ctx.session.adminRefund = { orderId: order.id, amountUsdc: order.amountUsdc };
     await ctx.reply(
-      `⚠️ Refund order ${order.id} for ${order.amountUsdc} USDC? (status: ${order.status})\n` +
-        'Send /refund_confirm to execute, or /refund_cancel to abort.'
+      `⚠️ Refund order ${order.id} for ${order.amountUsdc} USDC? (status: ${order.status})`,
+      { reply_markup: kb.refundConfirmCancel() }
     );
   });
 
@@ -87,7 +123,7 @@ function createAdminHandlers({ adminId, escrow, orders, logger = console }) {
     await ctx.reply('Refund cancelled.');
   });
 
-  return { escrowBalance, listOrders, refundStart, refundConfirm, refundCancel };
+  return { showMenu, escrowBalance, listOrders, totalFees, refundStart, refundConfirm, refundCancel };
 }
 
 module.exports = { createAdminHandlers, isAdmin };

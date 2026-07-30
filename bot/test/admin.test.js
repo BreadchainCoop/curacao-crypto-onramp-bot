@@ -30,6 +30,7 @@ function fakes() {
       { id: 'bbbbbbbb-2', status: 'failed', amountUsdc: 50, amountXcg: 93, createdAt: 'y' },
     ],
     listRecent: async () => orders.rows,
+    totalFees: async () => ({ feeXcg: 182.5, spreadXcg: 273, count: 3 }),
     getById: async (id) => orders.rows.find((o) => o.id === id) || null,
     refundedCalls: [],
     markRefunded: async (id) => {
@@ -75,13 +76,29 @@ test('/orders lists recent orders with status', async () => {
   assert.match(ctx.replies[0], /failed/);
 });
 
+test('total fees reports platform fees, spread and combined in XCG', async () => {
+  const { h } = handlers();
+  const ctx = mockCtx();
+  await h.totalFees(ctx);
+  assert.match(ctx.replies[0], /182\.50 XCG/); // platform fees
+  assert.match(ctx.replies[0], /273\.00 XCG/); // spread
+  assert.match(ctx.replies[0], /455\.50 XCG/); // combined
+});
+
+test('total fees is admin-gated (ignored for non-admins)', async () => {
+  const { h } = handlers();
+  const ctx = mockCtx({ fromId: '999' });
+  await h.totalFees(ctx);
+  assert.equal(ctx.replies.length, 0);
+});
+
 test('/refund requires a confirmation step before executing', async () => {
   const { h, escrow } = handlers();
   const ctx = mockCtx({ match: 'aaaaaaaa-1' });
   await h.refundStart(ctx);
   // No on-chain call yet — only a confirmation prompt + stashed pending refund.
   assert.equal(escrow.refundCalls.length, 0);
-  assert.match(ctx.replies[0], /refund_confirm/i);
+  assert.match(ctx.replies[0], /Refund order .* USDC\?/i); // a confirmation prompt (buttons attached)
   assert.deepEqual(ctx.session.adminRefund, { orderId: 'aaaaaaaa-1', amountUsdc: 100 });
 });
 

@@ -43,6 +43,17 @@ test('flat minimum fee applies to small orders', () => {
   assert.equal(q.totalXcg, 10.5);
 });
 
+test('maximum fee cap applies to large orders', () => {
+  const q = quoteUsdcPurchase(10000, {
+    pegRate: 1, spreadPct: 0, feeEnabled: true, feePct: 2.5, feeFlatMinXcg: 0.5, feeMaxXcg: 150,
+  });
+  // 2.5% of 10000 = 250 > 150 cap -> charge the 150 cap
+  assert.equal(q.fee.amountXcg, 150);
+  assert.equal(q.fee.capped, true);
+  assert.equal(q.fee.floored, false);
+  assert.equal(q.totalXcg, 10150);
+});
+
 test('spread and fee are reported as separate line items that sum to the total', () => {
   const q = quoteUsdcPurchase(100, {
     pegRate: 1, spreadPct: 1.5, feeEnabled: true, feePct: 1, feeFlatMinXcg: 0.5,

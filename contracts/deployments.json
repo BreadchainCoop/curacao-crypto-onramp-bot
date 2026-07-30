@@ -1,0 +1,38 @@
+{
+  "polygon-amoy": {
+    "chainId": 80002,
+    "escrow": "0x05b9aD81666f3a245500FCFc4E0e13017BcFAcD4",
+    "usdc": "0xdf4547092471a630d90f1A44521112C9aaC176e6",
+    "mockUsdc": true,
+    "deployer": "0xDc9be2a428557469097CE7e7aAeB9C65C280FC44",
+    "explorer": "https://amoy.polygonscan.com/address/0x05b9aD81666f3a245500FCFc4E0e13017BcFAcD4",
+    "deployedAt": "2026-06-29T00:00:00.000Z"
+  },
+  "base-sepolia": {
+    "chainId": 84532,
+    "escrow": "0x05b9aD81666f3a245500FCFc4E0e13017BcFAcD4",
+    "usdc": "0xdf4547092471a630d90f1A44521112C9aaC176e6",
+    "mockUsdc": true,
+    "deployer": "0xDc9be2a428557469097CE7e7aAeB9C65C280FC44",
+    "explorer": "https://sepolia.basescan.org/address/0x05b9aD81666f3a245500FCFc4E0e13017BcFAcD4",
+    "deployedAt": "2026-07-30T13:33:41.019Z"
+  },
+  "arc-testnet": {
+    "chainId": 5042002,
+    "escrow": "0x05b9aD81666f3a245500FCFc4E0e13017BcFAcD4",
+    "usdc": "0xdf4547092471a630d90f1A44521112C9aaC176e6",
+    "mockUsdc": true,
+    "deployer": "0xDc9be2a428557469097CE7e7aAeB9C65C280FC44",
+    "explorer": "https://testnet.arcscan.app/address/0x05b9aD81666f3a245500FCFc4E0e13017BcFAcD4",
+    "deployedAt": "2026-07-30T13:34:08.815Z"
+  },
+  "celo-sepolia": {
+    "chainId": 11142220,
+    "escrow": "0x05b9aD81666f3a245500FCFc4E0e13017BcFAcD4",
+    "usdc": "0xdf4547092471a630d90f1A44521112C9aaC176e6",
+    "mockUsdc": true,
+    "deployer": "0xDc9be2a428557469097CE7e7aAeB9C65C280FC44",
+    "explorer": "https://sepolia.celoscan.io/address/0x05b9aD81666f3a245500FCFc4E0e13017BcFAcD4",
+    "deployedAt": "2026-07-30T13:39:29.161Z"
+  }
+}

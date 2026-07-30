@@ -23,8 +23,9 @@ const DEFAULTS = {
   pegRate: USD_SELL_RATE, // CBCS commercial-bank USD "Sell" rate (XCG per USD).
   spreadPct: 1.5, // FX margin baked into the rate, percent.
   feeEnabled: true, // platform "fee switch" — captures a fee into the exchange.
-  feePct: 1.0, // platform fee, percent of order value (USDC notional).
+  feePct: 2.5, // platform fee, percent of order value (USDC notional).
   feeFlatMinXcg: 0.5, // minimum fee in XCG, so tiny orders still cover costs.
+  feeMaxXcg: 150, // maximum fee in XCG, so large orders aren't charged an astronomical fee.
 };
 
 // Round to 2 decimals (XCG cents), half-up, avoiding binary-float drift.
@@ -50,6 +51,12 @@ function validateConfig(cfg) {
   if (!(cfg.feeFlatMinXcg >= 0) || !Number.isFinite(cfg.feeFlatMinXcg)) {
     throw new RangeError('feeFlatMinXcg must be a finite number >= 0');
   }
+  if (!(cfg.feeMaxXcg >= 0) || !Number.isFinite(cfg.feeMaxXcg)) {
+    throw new RangeError('feeMaxXcg must be a finite number >= 0');
+  }
+  if (cfg.feeMaxXcg < cfg.feeFlatMinXcg) {
+    throw new RangeError('feeMaxXcg must be >= feeFlatMinXcg');
+  }
 }
 
 /**
@@ -72,6 +79,7 @@ function loadFxConfig(env = process.env) {
     feeEnabled: bool(env.FX_FEE_ENABLED, DEFAULTS.feeEnabled),
     feePct: num(env.FX_FEE_PCT, DEFAULTS.feePct),
     feeFlatMinXcg: num(env.FX_FEE_FLAT_MIN_XCG, DEFAULTS.feeFlatMinXcg),
+    feeMaxXcg: num(env.FX_FEE_MAX_XCG, DEFAULTS.feeMaxXcg),
   };
 }
 
@@ -101,9 +109,20 @@ function quoteUsdcPurchase(usdcAmount, config = {}) {
   const spreadXcg = round2(subtotalXcg * (cfg.spreadPct / 100));
 
   let feeXcg = 0;
+  let feeFloored = false;
+  let feeCapped = false;
   if (cfg.feeEnabled) {
     const feeFromPct = subtotalXcg * (cfg.feePct / 100);
-    feeXcg = round2(Math.max(feeFromPct, cfg.feeFlatMinXcg));
+    if (feeFromPct < cfg.feeFlatMinXcg) {
+      feeXcg = cfg.feeFlatMinXcg; // tiny orders still cover a minimum.
+      feeFloored = true;
+    } else if (feeFromPct > cfg.feeMaxXcg) {
+      feeXcg = cfg.feeMaxXcg; // large orders are capped so the fee stays sane.
+      feeCapped = true;
+    } else {
+      feeXcg = feeFromPct;
+    }
+    feeXcg = round2(feeXcg);
   }
 
   const totalXcg = round2(subtotalXcg + spreadXcg + feeXcg);
@@ -118,7 +137,10 @@ function quoteUsdcPurchase(usdcAmount, config = {}) {
       enabled: cfg.feeEnabled,
       pct: cfg.feeEnabled ? cfg.feePct : 0,
       flatMinXcg: cfg.feeFlatMinXcg,
+      maxXcg: cfg.feeMaxXcg,
       amountXcg: feeXcg,
+      floored: feeFloored,
+      capped: feeCapped,
     },
     totalXcg,
     // All-in XCG paid per 1 USDC — display/telemetry only.

@@ -34,10 +34,12 @@ function createEscrowOperator({ rpcUrl, privateKey, contractAddress, ethers }) {
 }
 
 function escrowOperatorFromEnv(env = process.env) {
+  const { activeChain } = require('../../chains');
+  const chain = activeChain(env);
   return createEscrowOperator({
-    rpcUrl: env.RPC_URL,
-    privateKey: env.ADMIN_WALLET_PRIVATE_KEY,
-    contractAddress: env.ESCROW_CONTRACT_ADDRESS,
+    rpcUrl: chain.rpcUrl,
+    privateKey: chain.privateKey,
+    contractAddress: chain.escrowAddress,
   });
 }
 
@@ -72,6 +74,37 @@ class SupabaseAdminOrders {
     if (error) throw error;
     if (!data) return null;
     return { id: data.id, status: data.status, amountUsdc: Number(data.amount_usdc) };
+  }
+
+  /**
+   * Total platform fees (and FX spread) accrued across orders where payment was
+   * received (paid / releasing / complete). The per-order fee is reconstructed
+   * from the stored total: fee = amount_xcg − subtotal − spread, with
+   * subtotal = amount_usdc × peg and spread = subtotal × spreadPct. This stays
+   * accurate across fee-percentage changes because amount_xcg recorded the real
+   * amount charged; only peg and spread are assumed constant.
+   */
+  async totalFees() {
+    const { loadFxConfig } = require('../lib/fx');
+    const { pegRate, spreadPct } = loadFxConfig();
+    const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+    const { data, error } = await this.client
+      .from('orders')
+      .select('amount_usdc, amount_xcg, status')
+      .in('status', ['paid', 'releasing', 'complete']);
+    if (error) throw error;
+    let feeXcg = 0;
+    let spreadXcg = 0;
+    let count = 0;
+    for (const o of data || []) {
+      const subtotal = round2(Number(o.amount_usdc) * pegRate);
+      const spread = round2(subtotal * (spreadPct / 100));
+      const fee = round2(Number(o.amount_xcg) - subtotal - spread);
+      feeXcg += Math.max(fee, 0);
+      spreadXcg += spread;
+      count += 1;
+    }
+    return { feeXcg: round2(feeXcg), spreadXcg: round2(spreadXcg), count };
   }
 
   async markRefunded(id) {

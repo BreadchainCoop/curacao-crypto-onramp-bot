@@ -38,10 +38,12 @@ function createEscrowService({ rpcUrl, privateKey, contractAddress, ethers }) {
 }
 
 function escrowFromEnv(env = process.env) {
+  const { activeChain } = require('../../chains');
+  const chain = activeChain(env);
   return createEscrowService({
-    rpcUrl: env.RPC_URL,
-    privateKey: env.ADMIN_WALLET_PRIVATE_KEY,
-    contractAddress: env.ESCROW_CONTRACT_ADDRESS,
+    rpcUrl: chain.rpcUrl,
+    privateKey: chain.privateKey,
+    contractAddress: chain.escrowAddress,
   });
 }
 

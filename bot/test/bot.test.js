@@ -85,7 +85,7 @@ test('buy.handleAmount quotes a valid amount and advances to confirm', async () 
   await buy.handleAmount(ctx);
   assert.equal(s.flow.step, 'awaiting_confirm');
   assert.equal(s.flow.data.usdcAmount, 100);
-  assert.match(ctx.replies[0].text, /You pay: 186\.55 XCG/);
+  assert.match(ctx.replies[0].text, /You pay: 189\.28 XCG/);
 });
 
 test('buy.handleAmount rejects a non-numeric amount', async () => {
@@ -134,7 +134,8 @@ test('buy.confirm with a payments service sends the Sentoo link and records the 
   assert.equal(payments.calls[0].walletAddress, s.walletAddress);
   assert.equal(payments.calls[0].telegramId, 7);
   assert.equal(s.pendingOrderId, 'order-99'); // the DB-issued order id
-  assert.match(ctx.replies[0].text, /pay\.test\/xyz/);
+  // The Sentoo link is now delivered as an inline "Pay now" URL button.
+  assert.equal(ctx.replies[0].opts.reply_markup.inline_keyboard[0][0].url, 'https://pay.test/xyz');
 });
 
 test('buy.confirm does not record an order if payment creation fails', async () => {

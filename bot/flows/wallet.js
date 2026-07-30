@@ -3,6 +3,8 @@
 // is owned by that email identity, the user can later log in to Privy with the
 // email and control it — it's theirs, not app-custodied. (#7)
 
+const kb = require('../lib/keyboards');
+
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -15,17 +17,38 @@ function isValidEmail(text) {
   return EMAIL_RE.test(String(text).trim());
 }
 
+/** Save the wallet to Supabase (via the injected users service) so a returning
+ *  user is recognised by telegram_id and can skip this step. Best-effort: a
+ *  failure here must not block the user, so it's caught and logged. */
+async function persistWallet(ctx, deps, address) {
+  if (!deps.users || !ctx.from) return;
+  try {
+    await deps.users.saveWallet(ctx.from.id, address);
+  } catch (err) {
+    console.error('wallet save failed:', err.message);
+  }
+}
+
+/** Returning user with a known address: confirm the destination before buying,
+ *  and offer to change it. */
+async function promptUseWallet(ctx) {
+  await ctx.reply(
+    `Your USDC will be sent to:\n${ctx.session.walletAddress}\n\nUse this address, or change it?`,
+    { reply_markup: kb.useOrChangeWallet() }
+  );
+}
+
 async function promptWallet(ctx) {
   ctx.session.flow = { name: 'wallet', step: 'awaiting_address' };
   await ctx.reply(
     'Where should we send your USDC?\n\n' +
-      'Paste an EVM wallet address (0x…), or send /wallet_new and I’ll create one ' +
-      'for you using your email.'
+      'Paste an EVM wallet address (0x…), or tap below and I’ll create one for you using your email.',
+    { reply_markup: kb.createWallet() }
   );
 }
 
 /** Handle a text message while the wallet flow is awaiting a pasted address. */
-async function handleAddress(ctx) {
+async function handleAddress(ctx, deps = {}) {
   const addr = String(ctx.message.text).trim();
   if (!isValidAddress(addr)) {
     await ctx.reply(
@@ -35,7 +58,8 @@ async function handleAddress(ctx) {
   }
   ctx.session.walletAddress = addr;
   ctx.session.flow = null;
-  await ctx.reply(`✅ Wallet saved:\n${addr}\n\nSend /buy to continue.`);
+  await persistWallet(ctx, deps, addr);
+  await ctx.reply(`✅ Wallet saved:\n${addr}\n\nReady when you are 👇`, { reply_markup: kb.buy() });
 }
 
 /** /wallet_new — begin email-based Privy wallet creation. */
@@ -74,9 +98,11 @@ async function handleEmail(ctx, deps = {}) {
     ctx.session.email = email;
     ctx.session.privyUserId = userId;
     ctx.session.flow = null;
+    await persistWallet(ctx, deps, address);
     await ctx.reply(
       `✅ Wallet created and linked to ${email}:\n${address}\n\n` +
-        'You can access it anytime by logging in to Privy with this email.\n\nSend /buy to continue.'
+        'You can access it anytime by logging in to Privy with this email.\n\nReady when you are 👇',
+      { reply_markup: kb.buy() }
     );
   } catch (err) {
     ctx.session.flow = { name: 'wallet', step: 'awaiting_address' };
@@ -88,6 +114,7 @@ async function handleEmail(ctx, deps = {}) {
 
 module.exports = {
   promptWallet,
+  promptUseWallet,
   handleAddress,
   startWalletCreation,
   handleEmail,

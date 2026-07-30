@@ -7,6 +7,7 @@
 
 const crypto = require('crypto');
 const { quoteUsdcPurchase, loadFxConfig } = require('../lib/fx');
+const kb = require('../lib/keyboards');
 
 async function startBuy(ctx) {
   ctx.session.flow = { name: 'buy', step: 'awaiting_amount' };
@@ -34,7 +35,7 @@ async function handleAmount(ctx) {
     step: 'awaiting_confirm',
     data: { usdcAmount: usdc, totalXcg: quote.totalXcg },
   };
-  await ctx.reply(formatQuote(quote), { parse_mode: 'HTML' });
+  await ctx.reply(formatQuote(quote), { parse_mode: 'HTML', reply_markup: kb.confirmCancel() });
 }
 
 /**
@@ -65,12 +66,14 @@ async function confirm(ctx, deps = {}) {
       ctx.session.pendingOrderId = orderId;
       await ctx.reply(
         `🧾 Order <code>${orderId}</code> — ${usdcAmount} USDC.\n` +
-          `💳 Pay <b>${totalXcg.toFixed(2)} XCG</b> here:\n${paymentUrl}\n\n` +
+          `💳 Pay <b>${totalXcg.toFixed(2)} XCG</b> — tap below.\n\n` +
           "You'll get a confirmation here once your payment is received.",
-        { parse_mode: 'HTML' }
+        { parse_mode: 'HTML', reply_markup: kb.pay(paymentUrl) }
       );
     } catch (err) {
-      await ctx.reply('Sorry — we could not create a payment link right now. Please try /buy again.');
+      await ctx.reply('Sorry — we could not create a payment link right now. Please try again.', {
+        reply_markup: kb.buy(),
+      });
     }
     return;
   }
@@ -88,7 +91,9 @@ async function confirm(ctx, deps = {}) {
 
 async function cancel(ctx) {
   ctx.session.flow = null;
-  await ctx.reply('Cancelled. Send /buy whenever you want to start again.');
+  await ctx.reply('Cancelled — no charge. Start again whenever you like 👇', {
+    reply_markup: kb.buy(),
+  });
 }
 
 /** Render a quote as an HTML message with spread and fee as separate lines. */
@@ -101,13 +106,16 @@ function formatQuote(q) {
     `FX spread (${q.spread.pct}%): ${f(q.spread.amountXcg)} XCG`,
   ];
   if (q.fee.enabled) {
-    lines.push(`Fee (${q.fee.pct}%, min ${f(q.fee.flatMinXcg)}): ${f(q.fee.amountXcg)} XCG`);
+    let note = `${q.fee.pct}%`;
+    if (q.fee.capped) note += `, capped at ${f(q.fee.maxXcg)}`;
+    else if (q.fee.floored) note += `, min ${f(q.fee.flatMinXcg)}`;
+    lines.push(`Fee (${note}): ${f(q.fee.amountXcg)} XCG`);
   }
   lines.push('━━━━━━━━━━━━━━━');
   lines.push(`💰 <b>You pay: ${f(q.totalXcg)} XCG</b>`);
-  lines.push(`🪙 You receive: ${q.usdcAmount} USDC`);
+  lines.push(`🪙 <b>You receive: ${q.usdcAmount} USDC</b>`);
   lines.push('');
-  lines.push(`Tap /confirm and I’ll send you a link to pay ${f(q.totalXcg)} XCG — or /cancel.`);
+  lines.push('Confirm below to get your payment link — or cancel.');
   return lines.join('\n');
 }
 
