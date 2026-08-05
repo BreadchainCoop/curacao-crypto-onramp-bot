@@ -32,10 +32,18 @@ function fakes() {
     listRecent: async () => orders.rows,
     totalFees: async () => ({ feeXcg: 182.5, spreadXcg: 273, count: 3 }),
     getById: async (id) => orders.rows.find((o) => o.id === id) || null,
-    refundedCalls: [],
-    markRefunded: async (id) => {
-      orders.refundedCalls.push(id);
-      return true;
+    // CAS: only failed -> refunded, one-shot.
+    claimRefund: async (id) => {
+      const o = orders.rows.find((r) => r.id === id);
+      if (o && o.status === 'failed') {
+        o.status = 'refunded';
+        return true;
+      }
+      return false;
+    },
+    revertRefund: async (id) => {
+      const o = orders.rows.find((r) => r.id === id);
+      if (o && o.status === 'refunded') o.status = 'failed';
     },
   };
   return { escrow, orders };
@@ -92,25 +100,55 @@ test('total fees is admin-gated (ignored for non-admins)', async () => {
   assert.equal(ctx.replies.length, 0);
 });
 
-test('/refund requires a confirmation step before executing', async () => {
+test('/refund on a failed order stashes a pending refund (no chain call yet)', async () => {
   const { h, escrow } = handlers();
-  const ctx = mockCtx({ match: 'aaaaaaaa-1' });
+  const ctx = mockCtx({ match: 'bbbbbbbb-2' }); // failed
   await h.refundStart(ctx);
-  // No on-chain call yet — only a confirmation prompt + stashed pending refund.
   assert.equal(escrow.refundCalls.length, 0);
-  assert.match(ctx.replies[0], /Refund order .* USDC\?/i); // a confirmation prompt (buttons attached)
-  assert.deepEqual(ctx.session.adminRefund, { orderId: 'aaaaaaaa-1', amountUsdc: 100 });
+  assert.match(ctx.replies[0], /Refund order .* USDC\?/i);
+  assert.deepEqual(ctx.session.adminRefund, { orderId: 'bbbbbbbb-2', amountUsdc: 50 });
 });
 
-test('/refund_confirm executes the refund and marks the order refunded', async () => {
+test('/refund is rejected for a non-failed order (no stash, no chain)', async () => {
+  const { h, escrow } = handlers();
+  const ctx = mockCtx({ match: 'aaaaaaaa-1' }); // complete
+  await h.refundStart(ctx);
+  assert.equal(escrow.refundCalls.length, 0);
+  assert.equal(ctx.session.adminRefund, null);
+  assert.match(ctx.replies[0], /only failed orders/i);
+});
+
+test('/refund_confirm CAS-claims failed -> refunded, then calls the chain', async () => {
   const { h, escrow, orders } = handlers();
-  const ctx = mockCtx({ match: 'aaaaaaaa-1' });
+  const ctx = mockCtx({ match: 'bbbbbbbb-2' });
   await h.refundStart(ctx);
   await h.refundConfirm(ctx);
-  assert.deepEqual(escrow.refundCalls, [100]);
-  assert.deepEqual(orders.refundedCalls, ['aaaaaaaa-1']);
+  assert.deepEqual(escrow.refundCalls, [50]);
+  assert.equal(orders.rows.find((o) => o.id === 'bbbbbbbb-2').status, 'refunded');
   assert.equal(ctx.session.adminRefund, null);
   assert.match(ctx.replies[1], /0xrefundhash/);
+});
+
+test('/refund_confirm never touches the chain if the CAS claim fails', async () => {
+  const { h, escrow, orders } = handlers();
+  orders.claimRefund = async () => false; // simulate already-refunded / race
+  const ctx = mockCtx();
+  ctx.session.adminRefund = { orderId: 'bbbbbbbb-2', amountUsdc: 50 };
+  await h.refundConfirm(ctx);
+  assert.equal(escrow.refundCalls.length, 0);
+  assert.match(ctx.replies[0], /can't be refunded/i);
+});
+
+test('/refund_confirm reverts the claim if the on-chain refund throws', async () => {
+  const { h, escrow, orders } = handlers();
+  escrow.refund = async () => {
+    throw new Error('rpc boom https://secret-rpc.example/key');
+  };
+  const ctx = mockCtx({ match: 'bbbbbbbb-2' });
+  await h.refundStart(ctx);
+  await h.refundConfirm(ctx);
+  assert.equal(orders.rows.find((o) => o.id === 'bbbbbbbb-2').status, 'failed'); // reverted
+  assert.doesNotMatch(ctx.replies[1], /secret-rpc/); // no raw error leaked
 });
 
 test('/refund_confirm with nothing pending does nothing on-chain', async () => {
@@ -131,7 +169,7 @@ test('/refund with an unknown order id does not stash a pending refund', async (
 
 test('/refund_cancel clears a pending refund', async () => {
   const { h, escrow } = handlers();
-  const ctx = mockCtx({ match: 'aaaaaaaa-1' });
+  const ctx = mockCtx({ match: 'bbbbbbbb-2' });
   await h.refundStart(ctx);
   await h.refundCancel(ctx);
   assert.equal(ctx.session.adminRefund, null);

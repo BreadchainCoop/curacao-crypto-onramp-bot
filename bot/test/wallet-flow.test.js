@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { getAddress } = require('ethers');
 const { initialSession } = require('../state/session');
 const wallet = require('../flows/wallet');
 
@@ -53,8 +54,8 @@ test('handleAddress persists the wallet via the users service (keyed by telegram
   const saved = [];
   const users = { saveWallet: async (id, address) => saved.push({ id, address }) };
   await wallet.handleAddress(ctx, { users });
-  assert.equal(s.walletAddress, addr);
-  assert.deepEqual(saved, [{ id: 4242, address: addr }]);
+  assert.equal(s.walletAddress, getAddress(addr)); // stored EIP-55 checksummed
+  assert.deepEqual(saved, [{ id: 4242, address: getAddress(addr) }]);
 });
 
 test('handleAddress still works (and does not throw) when no users service is injected', async () => {
@@ -62,7 +63,16 @@ test('handleAddress still works (and does not throw) when no users service is in
   const addr = '0x' + 'b'.repeat(40);
   const ctx = mockCtx(s, addr);
   await wallet.handleAddress(ctx);
-  assert.equal(s.walletAddress, addr);
+  assert.equal(s.walletAddress, getAddress(addr));
+});
+
+test('handleAddress rejects an address with a bad EIP-55 checksum', async () => {
+  const s = initialSession();
+  // Valid hex but a deliberately wrong mixed-case checksum.
+  const bad = '0xAbcdefABCDEF0123456789abcdefABCDEF012345';
+  const ctx = mockCtx(s, bad);
+  await wallet.handleAddress(ctx);
+  assert.equal(s.walletAddress, null);
 });
 
 test('handleEmail pregenerates a Privy wallet linked to the email', async () => {
@@ -112,6 +122,6 @@ test('handleAddress still accepts a pasted address', async () => {
   const addr = '0x' + 'a'.repeat(40);
   const ctx = mockCtx(s, addr);
   await wallet.handleAddress(ctx);
-  assert.equal(s.walletAddress, addr);
+  assert.equal(s.walletAddress, getAddress(addr));
   assert.equal(s.flow, null);
 });

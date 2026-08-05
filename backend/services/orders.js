@@ -53,7 +53,7 @@ class SupabaseOrdersRepository {
   async getBySentooTxId(txId) {
     const { data, error } = await this.client
       .from('orders')
-      .select('id, status, amount_usdc, amount_xcg, user:users(telegram_id, wallet_address)')
+      .select('id, status, amount_usdc, amount_xcg, payout_wallet, user:users(telegram_id, wallet_address)')
       .eq('sentoo_transaction_id', txId)
       .maybeSingle();
     if (error) throw error;
@@ -63,6 +63,7 @@ class SupabaseOrdersRepository {
       status: data.status,
       amountUsdc: Number(data.amount_usdc),
       amountXcg: Number(data.amount_xcg),
+      payoutWallet: data.payout_wallet,
       user: {
         telegramId: data.user && data.user.telegram_id,
         walletAddress: data.user && data.user.wallet_address,

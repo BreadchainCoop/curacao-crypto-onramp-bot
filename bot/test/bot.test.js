@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
+const { getAddress } = require('ethers');
 const { KycStatus, initialSession, resolveBuyGate } = require('../state/session');
 const wallet = require('../flows/wallet');
 const buy = require('../flows/buy');
@@ -64,7 +65,7 @@ test('handleAddress stores a valid wallet and clears the flow', async () => {
   const addr = '0x' + 'a'.repeat(40);
   const ctx = mockCtx(s, addr);
   await wallet.handleAddress(ctx);
-  assert.equal(s.walletAddress, addr);
+  assert.equal(s.walletAddress, getAddress(addr)); // stored EIP-55 checksummed
   assert.equal(s.flow, null);
   assert.match(ctx.replies[0].text, /saved/i);
 });
@@ -76,6 +77,23 @@ test('handleAddress rejects a bad wallet and keeps the flow open', async () => {
   await wallet.handleAddress(ctx);
   assert.equal(s.walletAddress, null);
   assert.equal(s.flow.step, 'awaiting_address');
+});
+
+test('buyLimits defaults to 5 / 25000 USDC', () => {
+  const { min, max } = buy.buyLimits({});
+  assert.equal(min, 5);
+  assert.equal(max, 25000);
+});
+
+test('buy.handleAmount rejects amounts outside the min/max range', async () => {
+  for (const amt of ['4', '25001']) {
+    const s = initialSession();
+    s.flow = { name: 'buy', step: 'awaiting_amount' };
+    const ctx = mockCtx(s, amt);
+    await buy.handleAmount(ctx);
+    assert.match(ctx.replies[0].text, /between 5 and 25,000/i);
+    assert.equal(s.flow.step, 'awaiting_amount'); // did not advance to confirm
+  }
 });
 
 test('buy.handleAmount quotes a valid amount and advances to confirm', async () => {

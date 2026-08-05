@@ -43,7 +43,7 @@ function createAdminHandlers({ adminId, escrow, orders, chain = null, logger = c
       await ctx.reply(`🏦 Escrow balance${net}: ${bal} USDC${link}`);
     } catch (err) {
       logger.error(`[admin] balance failed: ${err.message}`);
-      await ctx.reply(`Could not read escrow balance: ${err.message}`);
+      await ctx.reply('Could not read the escrow balance right now. Please try again.');
     }
   });
 
@@ -73,7 +73,7 @@ function createAdminHandlers({ adminId, escrow, orders, chain = null, logger = c
       );
     } catch (err) {
       logger.error(`[admin] total fees failed: ${err.message}`);
-      await ctx.reply(`Could not compute total fees: ${err.message}`);
+      await ctx.reply('Could not compute total fees right now. Please try again.');
     }
   });
 
@@ -86,6 +86,11 @@ function createAdminHandlers({ adminId, escrow, orders, chain = null, logger = c
     const order = await orders.getById(orderId);
     if (!order) {
       await ctx.reply(`Order ${orderId} not found.`);
+      return;
+    }
+    // Only a failed order can be refunded (one-shot, failed → refunded).
+    if (order.status !== 'failed') {
+      await ctx.reply(`Only failed orders can be refunded — order ${order.id} is currently "${order.status}".`);
       return;
     }
     ctx.session.adminRefund = { orderId: order.id, amountUsdc: order.amountUsdc };
@@ -102,19 +107,34 @@ function createAdminHandlers({ adminId, escrow, orders, chain = null, logger = c
       return;
     }
     ctx.session.adminRefund = null; // consume the confirmation
+
+    // Compare-and-set the DB transition (failed → refunded) BEFORE the on-chain
+    // call. If the CAS doesn't claim the order, never touch the escrow — this is
+    // what stops a repeated/any-status refund from draining the pool.
+    let claimed;
+    try {
+      claimed = await orders.claimRefund(pending.orderId);
+    } catch (dbErr) {
+      logger.error(`[admin] refund claim DB error for ${pending.orderId}: ${dbErr.message}`);
+      await ctx.reply('❌ Could not process the refund right now. Please try again.');
+      return;
+    }
+    if (!claimed) {
+      await ctx.reply("❌ This order can't be refunded — only a failed order that hasn't already been refunded can be.");
+      return;
+    }
+
     try {
       const txHash = await escrow.refund(pending.amountUsdc);
-      try {
-        await orders.markRefunded(pending.orderId);
-      } catch (dbErr) {
-        logger.error(`[admin] order ${pending.orderId} refunded on-chain but DB update failed: ${dbErr.message}`);
-      }
-      await ctx.reply(
-        `✅ Refunded ${pending.amountUsdc} USDC for order ${pending.orderId}.\nTransaction: ${txHash}`
-      );
+      await ctx.reply(`✅ Refunded ${pending.amountUsdc} USDC for order ${pending.orderId}.\nTx: ${txHash}`);
     } catch (err) {
-      logger.error(`[admin] refund failed for order ${pending.orderId}: ${err.message}`);
-      await ctx.reply(`❌ Refund failed: ${err.message}`);
+      logger.error(`[admin] on-chain refund failed for ${pending.orderId}: ${err.message}`);
+      try {
+        await orders.revertRefund(pending.orderId);
+      } catch (revErr) {
+        logger.error(`[admin] refund revert failed for ${pending.orderId}: ${revErr.message}`);
+      }
+      await ctx.reply("❌ Refund couldn't be completed on-chain — reverted. Please try again.");
     }
   });
 

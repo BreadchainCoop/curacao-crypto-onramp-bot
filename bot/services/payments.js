@@ -22,13 +22,14 @@ class SupabasePaymentsRepo {
     return data.id;
   }
 
-  async createOrder({ userId, amountXcg, amountUsdc }) {
+  async createOrder({ userId, amountXcg, amountUsdc, payoutWallet }) {
     const { data, error } = await this.client
       .from('orders')
       .insert({
         user_id: userId,
         amount_xcg: amountXcg,
         amount_usdc: amountUsdc,
+        payout_wallet: payoutWallet, // pinned destination — release reads this
         status: 'pending_payment',
       })
       .select('id')
@@ -59,7 +60,12 @@ function createPaymentsService({ repo, sentoo, logger = console }) {
    */
   async function createForOrder({ usdcAmount, amountXcg, walletAddress, telegramId }) {
     const userId = await repo.upsertUser(telegramId, walletAddress);
-    const orderId = await repo.createOrder({ userId, amountXcg, amountUsdc: usdcAmount });
+    const orderId = await repo.createOrder({
+      userId,
+      amountXcg,
+      amountUsdc: usdcAmount,
+      payoutWallet: walletAddress, // pin the destination at create time
+    });
     const { transactionId, paymentUrl } = await sentoo.createPayment({
       orderId,
       amountXcg,

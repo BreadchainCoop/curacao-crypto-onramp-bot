@@ -107,14 +107,31 @@ class SupabaseAdminOrders {
     return { feeXcg: round2(feeXcg), spreadXcg: round2(spreadXcg), count };
   }
 
-  async markRefunded(id) {
+  /**
+   * Claim an order for refund via a compare-and-set: transition failed → refunded
+   * and report whether THIS call made the change. Returns false if the order is
+   * not `failed` (e.g. complete, pending, or already refunded), so a refund can
+   * never be repeated or applied to a non-failed order.
+   */
+  async claimRefund(id) {
     const { data, error } = await this.client
       .from('orders')
       .update({ status: 'refunded' })
       .eq('id', id)
+      .eq('status', 'failed')
       .select('id');
     if (error) throw error;
     return Array.isArray(data) && data.length > 0;
+  }
+
+  /** Undo a refund claim (refunded → failed) if the on-chain step didn't go through. */
+  async revertRefund(id) {
+    const { error } = await this.client
+      .from('orders')
+      .update({ status: 'failed' })
+      .eq('id', id)
+      .eq('status', 'refunded');
+    if (error) throw error;
   }
 }
 

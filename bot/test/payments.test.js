@@ -38,7 +38,7 @@ test('createForOrder upserts the user, creates the order, calls Sentoo, stores t
   });
 
   assert.deepEqual(calls.upsertUser, { telegramId: 7, walletAddress: '0xWALLET' });
-  assert.deepEqual(calls.createOrder, { userId: 'user-1', amountXcg: 186.55, amountUsdc: 100 });
+  assert.deepEqual(calls.createOrder, { userId: 'user-1', amountXcg: 186.55, amountUsdc: 100, payoutWallet: '0xWALLET' });
   assert.equal(calls.createPayment.orderId, 'order-1'); // reference == db order id
   assert.equal(calls.createPayment.amountXcg, 186.55);
   assert.deepEqual(calls.setTx, { orderId: 'order-1', transactionId: 'stx-1' });

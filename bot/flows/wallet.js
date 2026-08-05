@@ -3,14 +3,28 @@
 // is owned by that email identity, the user can later log in to Privy with the
 // email and control it — it's theirs, not app-custodied. (#7)
 
+const { getAddress } = require('ethers');
 const kb = require('../lib/keyboards');
 
-const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** True if `text` is a well-formed EVM (0x…40 hex) address. */
+/**
+ * Return the EIP-55 checksummed form of an address, or null if it isn't a valid
+ * address. `ethers.getAddress` accepts all-lowercase input (and normalises it)
+ * but REJECTS a mixed-case address whose checksum is wrong — catching typos that
+ * a hex-only regex would wave through.
+ */
+function normalizeAddress(text) {
+  try {
+    return getAddress(String(text).trim());
+  } catch {
+    return null;
+  }
+}
+
+/** True if `text` is a valid EVM address (checksum-aware). */
 function isValidAddress(text) {
-  return ADDRESS_RE.test(String(text).trim());
+  return normalizeAddress(text) !== null;
 }
 
 function isValidEmail(text) {
@@ -49,14 +63,14 @@ async function promptWallet(ctx) {
 
 /** Handle a text message while the wallet flow is awaiting a pasted address. */
 async function handleAddress(ctx, deps = {}) {
-  const addr = String(ctx.message.text).trim();
-  if (!isValidAddress(addr)) {
+  const addr = normalizeAddress(ctx.message.text);
+  if (!addr) {
     await ctx.reply(
-      "That doesn't look like a wallet address. It should start with 0x and be 42 characters long. Try again, or /wallet_new."
+      "That doesn't look like a valid wallet address (0x + 40 hex characters, correct checksum). Try again, or /wallet_new."
     );
     return;
   }
-  ctx.session.walletAddress = addr;
+  ctx.session.walletAddress = addr; // stored EIP-55 checksummed
   ctx.session.flow = null;
   await persistWallet(ctx, deps, addr);
   await ctx.reply(`✅ Wallet saved:\n${addr}\n\nReady when you are 👇`, { reply_markup: kb.buy() });

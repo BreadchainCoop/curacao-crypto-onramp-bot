@@ -9,6 +9,18 @@ const crypto = require('crypto');
 const { quoteUsdcPurchase, loadFxConfig } = require('../lib/fx');
 const kb = require('../lib/keyboards');
 
+// Thousands-separated formatters for legibility (e.g. 25000 -> "25,000").
+const fmtXcg = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtAmount = (n) => Number(n).toLocaleString('en-US');
+
+// Per-order USDC bounds (override with BUY_MIN_USDC / BUY_MAX_USDC).
+function buyLimits(env = process.env) {
+  return {
+    min: Number(env.BUY_MIN_USDC) || 5,
+    max: Number(env.BUY_MAX_USDC) || 25000,
+  };
+}
+
 async function startBuy(ctx) {
   ctx.session.flow = { name: 'buy', step: 'awaiting_amount' };
   await ctx.reply('How much USDC would you like to buy? Reply with an amount, e.g. 50');
@@ -19,6 +31,11 @@ async function handleAmount(ctx) {
   const usdc = Number(String(ctx.message.text).trim());
   if (!Number.isFinite(usdc) || usdc <= 0) {
     await ctx.reply('Please send a positive number, e.g. 50');
+    return;
+  }
+  const { min, max } = buyLimits();
+  if (usdc < min || usdc > max) {
+    await ctx.reply(`Please choose an amount between ${fmtAmount(min)} and ${fmtAmount(max)} USDC.`);
     return;
   }
 
@@ -98,25 +115,24 @@ async function cancel(ctx) {
 
 /** Render a quote as an HTML message with spread and fee as separate lines. */
 function formatQuote(q) {
-  const f = (n) => n.toFixed(2);
   const lines = [
-    `<b>Buy ${q.usdcAmount} USDC</b>`,
+    `<b>Buy ${fmtAmount(q.usdcAmount)} USDC</b>`,
     '',
-    `Subtotal (${q.pegRate} XCG/USDC): ${f(q.subtotalXcg)} XCG`,
-    `FX spread (${q.spread.pct}%): ${f(q.spread.amountXcg)} XCG`,
+    `Subtotal (${q.pegRate} XCG/USDC): ${fmtXcg(q.subtotalXcg)} XCG`,
+    `FX spread (${q.spread.pct}%): ${fmtXcg(q.spread.amountXcg)} XCG`,
   ];
   if (q.fee.enabled) {
     let note = `${q.fee.pct}%`;
-    if (q.fee.capped) note += `, capped at ${f(q.fee.maxXcg)}`;
-    else if (q.fee.floored) note += `, min ${f(q.fee.flatMinXcg)}`;
-    lines.push(`Fee (${note}): ${f(q.fee.amountXcg)} XCG`);
+    if (q.fee.capped) note += `, capped at ${fmtXcg(q.fee.maxXcg)}`;
+    else if (q.fee.floored) note += `, min ${fmtXcg(q.fee.flatMinXcg)}`;
+    lines.push(`Fee (${note}): ${fmtXcg(q.fee.amountXcg)} XCG`);
   }
   lines.push('━━━━━━━━━━━━━━━');
-  lines.push(`💰 <b>You pay: ${f(q.totalXcg)} XCG</b>`);
-  lines.push(`🪙 <b>You receive: ${q.usdcAmount} USDC</b>`);
+  lines.push(`💰 <b>You pay: ${fmtXcg(q.totalXcg)} XCG</b>`);
+  lines.push(`🪙 <b>You receive: ${fmtAmount(q.usdcAmount)} USDC</b>`);
   lines.push('');
   lines.push('Confirm below to get your payment link — or cancel.');
   return lines.join('\n');
 }
 
-module.exports = { startBuy, handleAmount, confirm, cancel, formatQuote };
+module.exports = { startBuy, handleAmount, confirm, cancel, formatQuote, buyLimits };

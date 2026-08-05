@@ -132,7 +132,10 @@ function createSentooWebhookRouter({
 
       await orders.tryTransition(order.id, ORDER_STATUS.PAID, ORDER_STATUS.RELEASING);
       try {
-        const txHash = await escrow.release(order.user.walletAddress, order.amountUsdc);
+        // Release to the wallet pinned at order-create; fall back to the user's
+        // current wallet only for legacy orders created before payout_wallet.
+        const payoutWallet = order.payoutWallet || order.user.walletAddress;
+        const txHash = await escrow.release(payoutWallet, order.amountUsdc);
         await orders.tryTransition(order.id, ORDER_STATUS.RELEASING, ORDER_STATUS.COMPLETE);
         await safeNotify(notifier, logger, order.user.telegramId, ORDER_STATUS.COMPLETE, {
           amountUsdc: order.amountUsdc,

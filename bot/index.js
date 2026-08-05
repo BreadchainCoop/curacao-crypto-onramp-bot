@@ -9,6 +9,7 @@ const { startKyc } = require('./flows/kyc');
 const wallet = require('./flows/wallet');
 const buy = require('./flows/buy');
 const kb = require('./lib/keyboards');
+const { createRateLimiter } = require('./lib/rateLimit');
 const { createAdminHandlers } = require('./flows/admin');
 
 const WELCOME =
@@ -146,8 +147,20 @@ function createBot(token, opts = {}) {
     });
   }
 
+  // Per-user rate limiting for the sensitive actions (buy / wallet create).
+  const limiter = createRateLimiter({ windowMs: 60_000, max: 8 });
+  const tooFast = async (ctx, action) => {
+    const id = ctx.from && ctx.from.id;
+    if (id && !limiter.allow(`${action}:${id}`)) {
+      await ctx.reply("You're going a bit fast — please wait a moment and try again.");
+      return true;
+    }
+    return false;
+  };
+
   // Shared entry to the buy flow, gating on KYC → wallet → buy.
   const beginBuy = async (ctx) => {
+    if (await tooFast(ctx, 'buy')) return;
     // Returning user? Rehydrate their saved wallet from Supabase so they skip
     // the wallet step even in a fresh session (e.g. after a bot restart).
     if (!ctx.session.walletAddress && opts.users && ctx.from) {
@@ -175,9 +188,18 @@ function createBot(token, opts = {}) {
   bot.callbackQuery('change_wallet', onTap((ctx) => wallet.promptWallet(ctx)));
   bot.callbackQuery('confirm_order', onTap((ctx) => buy.confirm(ctx, { payments: opts.payments })));
   bot.callbackQuery('cancel_order', onTap((ctx) => buy.cancel(ctx)));
-  bot.callbackQuery('create_wallet', onTap((ctx) => wallet.startWalletCreation(ctx, { privy: opts.privy })));
+  bot.callbackQuery(
+    'create_wallet',
+    onTap(async (ctx) => {
+      if (await tooFast(ctx, 'wallet')) return;
+      return wallet.startWalletCreation(ctx, { privy: opts.privy });
+    })
+  );
 
-  bot.command('wallet_new', (ctx) => wallet.startWalletCreation(ctx, { privy: opts.privy }));
+  bot.command('wallet_new', async (ctx) => {
+    if (await tooFast(ctx, 'wallet')) return;
+    return wallet.startWalletCreation(ctx, { privy: opts.privy });
+  });
 
   // Route free-text input to whatever flow the user is currently in.
   bot.on('message:text', async (ctx) => {
