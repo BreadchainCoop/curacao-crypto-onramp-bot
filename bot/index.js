@@ -32,9 +32,15 @@ const HELP =
 const FAILED_STATUSES = new Set(['failed', 'rejected', 'cancelled', 'canceled']);
 
 function startPayloadMessage(payload) {
-  switch (String(payload || '').trim().toLowerCase()) {
+  const s = String(payload || '').trim().toLowerCase();
+  if (!s) return null; // genuine /start (no deep-link payload) → welcome menu
+  switch (s) {
     case 'success':
     case 'paid':
+    case 'complete':
+    case 'completed':
+    case 'done':
+    case 'ok':
       return "✅ Payment received! We're processing it and releasing your USDC now — your receipt will land here in a moment.";
     case 'pending':
     case 'issued':
@@ -45,7 +51,9 @@ function startPayloadMessage(payload) {
     case 'canceled':
       return "❌ That payment didn't complete — no charge was made.";
     default:
-      return null;
+      // Any other non-empty payload still means a return from Sentoo, not a
+      // fresh start — show a processing message rather than the welcome menu.
+      return "⏳ Thanks — we're processing your payment. You'll get a confirmation and receipt here shortly.";
   }
 }
 
@@ -92,6 +100,7 @@ function createBot(token, opts = {}) {
     // Returning from a Sentoo payment? Telegram delivers the status as the
     // /start payload — show it instead of the welcome menu.
     const payload = String(ctx.match || '').trim();
+    if (payload) console.log(`[start] deep-link payload: ${JSON.stringify(payload)}`);
     const statusMsg = startPayloadMessage(payload);
     if (statusMsg) {
       const failed = FAILED_STATUSES.has(payload.toLowerCase());

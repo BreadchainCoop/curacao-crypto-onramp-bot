@@ -23,19 +23,24 @@ function safeEqual(a, b) {
 
 // Notifications must never break the money flow — a Telegram hiccup is logged,
 // not thrown.
-async function safeNotify(notifier, logger, chatId, status, ctx) {
+async function safeNotify(notifier, logger, chatId, status, ctx, replyMarkup) {
   const text = messageForStatus(status, ctx);
   if (!text) return;
-  await safeNotifyText(notifier, logger, chatId, text);
+  await safeNotifyText(notifier, logger, chatId, text, replyMarkup);
 }
 
-async function safeNotifyText(notifier, logger, chatId, text) {
+async function safeNotifyText(notifier, logger, chatId, text, replyMarkup) {
   try {
-    await notifier.notify(chatId, text);
+    await notifier.notify(chatId, text, replyMarkup ? { reply_markup: replyMarkup } : {});
   } catch (err) {
     logger.error(`[sentoo] notify failed for chat ${chatId}: ${err.message}`);
   }
 }
+
+// "🪙 Buy more USDC" — callback handled by the bot process (start_buy).
+const BUY_AGAIN_KEYBOARD = {
+  inline_keyboard: [[{ text: '🪙 Buy more USDC', callback_data: 'start_buy' }]],
+};
 
 /**
  * @param {object} deps
@@ -137,11 +142,14 @@ function createSentooWebhookRouter({
         const payoutWallet = order.payoutWallet || order.user.walletAddress;
         const txHash = await escrow.release(payoutWallet, order.amountUsdc);
         await orders.tryTransition(order.id, ORDER_STATUS.RELEASING, ORDER_STATUS.COMPLETE);
-        await safeNotify(notifier, logger, order.user.telegramId, ORDER_STATUS.COMPLETE, {
-          amountUsdc: order.amountUsdc,
-          txHash,
-          txUrl: `${explorerTxBase}${txHash}`,
-        });
+        await safeNotify(
+          notifier,
+          logger,
+          order.user.telegramId,
+          ORDER_STATUS.COMPLETE,
+          { amountUsdc: order.amountUsdc, txHash, txUrl: `${explorerTxBase}${txHash}` },
+          BUY_AGAIN_KEYBOARD
+        );
         logger.info(`[sentoo] order ${order.id} complete tx=${txHash}`);
       } catch (releaseErr) {
         await orders.tryTransition(order.id, ORDER_STATUS.RELEASING, ORDER_STATUS.FAILED);
