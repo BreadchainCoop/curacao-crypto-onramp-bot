@@ -19,12 +19,12 @@
   },
   "arc-testnet": {
     "chainId": 5042002,
-    "escrow": "0x05b9aD81666f3a245500FCFc4E0e13017BcFAcD4",
-    "usdc": "0xdf4547092471a630d90f1A44521112C9aaC176e6",
-    "mockUsdc": true,
+    "escrow": "0x3D3D4C55fF2bBac6f2E12caDbb3B88ad6Ae5b14c",
+    "usdc": "0x3600000000000000000000000000000000000000",
+    "mockUsdc": false,
     "deployer": "0xDc9be2a428557469097CE7e7aAeB9C65C280FC44",
-    "explorer": "https://testnet.arcscan.app/address/0x05b9aD81666f3a245500FCFc4E0e13017BcFAcD4",
-    "deployedAt": "2026-07-30T13:34:08.815Z"
+    "explorer": "https://testnet.arcscan.app/address/0x3D3D4C55fF2bBac6f2E12caDbb3B88ad6Ae5b14c",
+    "deployedAt": "2026-08-12T19:41:50.995Z"
   },
   "celo-sepolia": {
     "chainId": 11142220,
