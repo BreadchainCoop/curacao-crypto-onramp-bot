@@ -13,6 +13,13 @@ contracts/artifacts/
 contracts/cache/
 contracts/ignition/deployments/
 
+# solidity-coverage
+contracts/coverage/
+contracts/coverage.json
+contracts/.coverage_artifacts/
+contracts/.coverage_cache/
+contracts/.coverage_contracts/
+
 # Build output
 dist/
 build/

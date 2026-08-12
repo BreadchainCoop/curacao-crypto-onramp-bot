@@ -32,7 +32,7 @@ A Telegram bot that lets users in Curaçao, Aruba, and Bonaire buy USDC stableco
 ```
 curacao-crypto-onramp-bot/
 ├── /.agents/skills    ← Shared CE, domain, and stack skills
-├── /.github/workflows  ← CI (commitlint on PRs)
+├── /.github/workflows  ← CI (commitlint, then coverage on PRs)
 ├── /bot              ← Telegram bot logic
 │   ├── index.js
 │   ├── flows/
@@ -129,6 +129,23 @@ guidance. Agent autonomy does not override human review for payments, KYC,
 custody, migrations, secrets, deployment, or mainnet work. See
 [`SECURITY.md`](SECURITY.md).
 
+## CI
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on pull requests with Node 22:
+
+1. **commitlint** — Conventional Commits for every commit in the PR range
+2. **node-coverage** (after commitlint) — `backend` and `bot` `npm run test:coverage`
+3. **contracts-coverage** (after commitlint) — `contracts` `npm run coverage`
+
+Coverage floors (CI hard-fail):
+
+| Package | Gate | Exclusions |
+|---|---|---|
+| backend / bot | lines 80%, functions 70%, branches 70% | `index.js`, `test/**` |
+| contracts | `Escrow.sol` lines 80% | `mocks/` (via `.solcover.js`) |
+
+If branch protection still requires the old `Commitlint / commitlint` check, update it to the new `CI / …` job names after this workflow lands.
+
 ## Commit messages
 
 This repo uses [Conventional Commits](https://www.conventionalcommits.org/) (e.g. `feat:`, `fix:`, `chore:`). GitHub Actions runs [commitlint](https://commitlint.js.org/) on pull requests and fails if any commit in the PR range does not match.
@@ -138,6 +155,14 @@ To check locally after installing root tooling:
 ```bash
 npm install
 npx commitlint --from origin/main --to HEAD --verbose
+```
+
+Coverage locally (Node 22+):
+
+```bash
+cd backend && npm run test:coverage
+cd bot && npm run test:coverage
+cd contracts && npm run coverage
 ```
 
 ## Security

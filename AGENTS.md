@@ -41,7 +41,9 @@ Install and test package dependencies in each package directory.
 
 ## Commands
 
-Use Node.js 20, matching CI.
+Use Node.js 22, matching CI (required for Node test-runner coverage
+threshold and exclude flags). Runtime on Node 20 may still work for
+`start` / plain `test`, but `test:coverage` needs Node 22+.
 
 ```bash
 # Root commit tooling
@@ -52,18 +54,27 @@ npm run commitlint -- --from origin/main --to HEAD --verbose
 cd bot
 npm ci
 npm test
+npm run test:coverage
 
 # Backend
 cd backend
 npm ci
 npm test
+npm run test:coverage
 
 # Contracts
 cd contracts
 npm ci
-npx hardhat test
+npm test
+npm run coverage
 npm run compile
 ```
+
+Coverage gates (also enforced in GitHub Actions after commitlint):
+
+- `backend` / `bot`: lines ≥ 80%, functions ≥ 70%, branches ≥ 70%;
+  excludes `index.js` and `test/**`
+- `contracts`: `Escrow.sol` lines ≥ 80%; `mocks/` skipped via `.solcover.js`
 
 Run the smallest relevant test set while iterating, then the full affected
 package suite before handoff. Contract, money-path, and migration changes should
