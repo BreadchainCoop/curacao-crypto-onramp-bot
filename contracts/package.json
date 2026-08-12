@@ -5,6 +5,8 @@
   "description": "Solidity escrow contract for the Curaçao crypto on-ramp (Hardhat)",
   "scripts": {
     "compile": "hardhat compile",
+    "test": "hardhat test",
+    "coverage": "hardhat coverage && node scripts/check-coverage.js",
     "deploy:amoy": "USE_MOCK_USDC=1 hardhat run scripts/deploy.js --network polygon-amoy",
     "deploy:base-sepolia": "USE_MOCK_USDC=1 hardhat run scripts/deploy.js --network base-sepolia",
     "deploy:celo-sepolia": "USE_MOCK_USDC=1 hardhat run scripts/deploy.js --network celo-sepolia",

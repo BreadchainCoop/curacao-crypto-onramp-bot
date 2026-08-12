@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  commitlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+  # Coverage thresholds (enforced by package scripts):
+  # - backend/bot: lines 80%, functions 70%, branches 70%
+  #   excludes: index.js (entrypoint), test/**
+  # - contracts: Escrow.sol lines 80% (mocks/ skipped via .solcover.js)
+  # Node 22 is required for --test-coverage-* threshold/exclude flags.
+  node-coverage:
+    needs: commitlint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package: [backend, bot]
+    defaults:
+      run:
+        working-directory: ${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ${{ matrix.package }}/package-lock.json
+      - run: npm ci
+      - run: npm run test:coverage
+
+  contracts-coverage:
+    needs: commitlint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: contracts/package-lock.json
+      - run: npm ci
+      - run: npm run coverage

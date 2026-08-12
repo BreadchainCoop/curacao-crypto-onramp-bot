@@ -6,7 +6,8 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "node --test"
+    "test": "node --test",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-exclude='**/index.js' --test-coverage-exclude='**/test/**' --test-coverage-lines=80 --test-coverage-functions=70 --test-coverage-branches=70"
   },
   "license": "MIT",
   "dependencies": {
