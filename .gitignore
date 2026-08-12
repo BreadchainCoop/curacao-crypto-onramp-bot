@@ -25,6 +25,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Compound Engineering — machine-local preferences
+.compound-engineering/*.local.yaml
+
 # Logs
 *.log
 logs/
