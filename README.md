@@ -31,6 +31,7 @@ A Telegram bot that lets users in Curaçao, Aruba, and Bonaire buy USDC stableco
 
 ```
 curacao-crypto-onramp-bot/
+├── /.github/workflows  ← CI (commitlint on PRs)
 ├── /bot              ← Telegram bot logic
 │   ├── index.js
 │   ├── flows/
@@ -60,6 +61,8 @@ curacao-crypto-onramp-bot/
 ├── /supabase         ← Database schema (migrations)
 │   └── migrations/
 │       └── 0001_init.sql
+├── commitlint.config.js
+├── package.json      ← root tooling (commitlint)
 ├── .env.example
 ├── .gitignore
 └── README.md
@@ -88,6 +91,17 @@ node index.js
 # Start the Telegram bot
 cd bot
 node index.js
+```
+
+## Commit messages
+
+This repo uses [Conventional Commits](https://www.conventionalcommits.org/) (e.g. `feat:`, `fix:`, `chore:`). GitHub Actions runs [commitlint](https://commitlint.js.org/) on pull requests and fails if any commit in the PR range does not match.
+
+To check locally after installing root tooling:
+
+```bash
+npm install
+npx commitlint --from origin/main --to HEAD --verbose
 ```
 
 ## Security
