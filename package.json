@@ -1,0 +1,14 @@
+{
+  "name": "curacao-crypto-onramp-bot",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Root tooling for the Curaçao crypto on-ramp monorepo",
+  "scripts": {
+    "commitlint": "commitlint"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1"
+  },
+  "license": "MIT"
+}
