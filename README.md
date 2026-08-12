@@ -31,6 +31,7 @@ A Telegram bot that lets users in Curaçao, Aruba, and Bonaire buy USDC stableco
 
 ```
 curacao-crypto-onramp-bot/
+├── /.agents/skills    ← Shared CE, domain, and stack skills
 ├── /.github/workflows  ← CI (commitlint on PRs)
 ├── /bot              ← Telegram bot logic
 │   ├── index.js
@@ -63,6 +64,8 @@ curacao-crypto-onramp-bot/
 │       └── 0001_init.sql
 ├── commitlint.config.js
 ├── package.json      ← root tooling (commitlint)
+├── AGENTS.md         ← Canonical contributor/agent guidance
+├── CLAUDE.md         ← Thin Claude Code import of AGENTS.md
 ├── .env.example
 ├── .gitignore
 └── README.md
@@ -92,6 +95,39 @@ node index.js
 cd bot
 node index.js
 ```
+
+## Agents and Compound Engineering
+
+[`AGENTS.md`](AGENTS.md) is the canonical guidance for contributors and coding
+agents. Shared skills live in [`.agents/skills/`](.agents/skills/) so Cursor,
+Codex, Copilot, and compatible hosts receive the same repository-owned baseline.
+`CLAUDE.md` imports the canonical guidance for Claude Code.
+
+The lightweight workflow is:
+
+1. `ce-brainstorm` — settle outcomes and scope
+2. `ce-plan` — produce a reviewable implementation sequence
+3. `ce-work` — implement approved units with focused checks
+4. `ce-simplify-code` — remove avoidable complexity without changing behavior
+5. `ce-code-review` — review correctness, security, and tests
+6. `ce-compound` — preserve reusable learnings in `docs/solutions/`
+
+The repo also includes focused on-ramp and language skills plus the official,
+pinned Supabase Postgres best-practices skill. Accepted substantial plans belong
+in [`docs/plans/`](docs/plans/).
+
+Local CE preferences are optional:
+
+```bash
+cp .compound-engineering/config.local.example.yaml \
+  .compound-engineering/config.local.yaml
+```
+
+The full [Compound Engineering plugin](https://github.com/EveryInc/compound-engineering-plugin)
+is optional advanced tooling; it supplements rather than replaces the checked-in
+guidance. Agent autonomy does not override human review for payments, KYC,
+custody, migrations, secrets, deployment, or mainnet work. See
+[`SECURITY.md`](SECURITY.md).
 
 ## Commit messages
 
