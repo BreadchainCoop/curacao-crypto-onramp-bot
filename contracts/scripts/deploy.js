@@ -15,6 +15,11 @@ const path = require('path');
 // Canonical USDC by chain id (override anytime with USDC_ADDRESS).
 const KNOWN_USDC = {
   84532: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', // Base Sepolia (Circle)
+  // Arc testnet: USDC is a system predeploy exposing a standard ERC-20 interface
+  // (6 decimals) at this fixed address. The native gas token is the same asset but
+  // uses 18 decimals — the escrow only touches the 6-decimal ERC-20 view, so no
+  // amount-math changes are needed. Only used when USE_MOCK_USDC is NOT set.
+  5042002: '0x3600000000000000000000000000000000000000', // Arc testnet (Circle)
 };
 
 // Block explorer "address" base URLs, for the deployment record + verify links.
