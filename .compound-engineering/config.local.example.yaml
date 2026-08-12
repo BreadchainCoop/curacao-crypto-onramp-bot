@@ -1,0 +1,3 @@
+# Copy to config.local.yaml for machine-local CE preferences.
+# Keep generated plans and compounded solutions under the repository docs tree.
+docs_root: docs
