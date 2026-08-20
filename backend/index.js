@@ -6,6 +6,7 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { createSentooWebhookRouter } = require('./routes/sentoo');
 const { createKycWebhookRouter } = require('./routes/kyc');
+const { createOpsRouter } = require('./routes/ops');
 
 /**
  * Build the Express app from injected dependencies. Pure — no env access, no
@@ -26,6 +27,12 @@ function createApp(deps = {}) {
     legacyHeaders: false,
   });
   app.use('/webhook', limiter);
+
+  // Operator API for the bot's admin actions (#18). Only mounted when a secret
+  // and escrow signer are configured; the bot authenticates with OPS_API_SECRET.
+  if (deps.opsSecret && deps.escrow) {
+    app.use('/ops', createOpsRouter({ escrow: deps.escrow, opsSecret: deps.opsSecret, logger: deps.logger }));
+  }
 
   app.use('/webhook/sentoo', createSentooWebhookRouter(deps));
   if (deps.users) {
@@ -57,6 +64,7 @@ function startFromEnv() {
     users: usersFromEnv(),
     webhookToken: process.env.SENTOO_WEBHOOK_SECRET || null,
     kycWebhookSecret: process.env.SYNAPS_WEBHOOK_SECRET || null,
+    opsSecret: process.env.OPS_API_SECRET || null,
     // Receipt link uses the active chain's explorer (falls back to an override).
     explorerTxBase: process.env.EXPLORER_TX_BASE_URL || `${activeChain().explorer}/tx/`,
     rateLimit: {

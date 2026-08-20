@@ -12,8 +12,12 @@
 // The public interface (`release(recipient, amountUsdc) -> txHash`) is unchanged,
 // so backend/routes/sentoo.js and bot admin flows keep working across adapters.
 
-// Minimal ABI — just the function we call. Matches contracts/src/Escrow.sol.
-const ESCROW_ABI = ['function release(address recipient, uint256 amount)'];
+// Minimal ABI — just the functions we call. Matches contracts/src/Escrow.sol.
+const ESCROW_ABI = [
+  'function release(address recipient, uint256 amount)',
+  'function refund(uint256 amount)',
+  'function balance() view returns (uint256)',
+];
 
 // USDC has 6 decimals.
 const USDC_DECIMALS = 6;
@@ -27,12 +31,16 @@ const USDC_DECIMALS = 6;
  * @param {object} opts.signer            { send({to, data}) -> Promise<txHash> }
  * @param {object} [opts.ethers]          injectable; defaults to require('ethers')
  */
-function createEscrowService({ contractAddress, signer, ethers }) {
+function createEscrowService({ contractAddress, signer, rpcUrl, ethers }) {
   if (!contractAddress || !signer) {
     throw new Error('Escrow service requires contractAddress and a signer');
   }
   const lib = ethers ?? require('ethers');
   const iface = new lib.Interface(ESCROW_ABI);
+  // Read-only provider for view calls (balance) — no key involved.
+  const readContract = rpcUrl
+    ? new lib.Contract(contractAddress, ESCROW_ABI, new lib.JsonRpcProvider(rpcUrl))
+    : null;
 
   /** Release `amountUsdc` (human units, e.g. 100.5) to `recipient`. Returns tx hash. */
   async function release(recipient, amountUsdc) {
@@ -41,7 +49,21 @@ function createEscrowService({ contractAddress, signer, ethers }) {
     return signer.send({ to: contractAddress, data });
   }
 
-  return { release };
+  /** Owner-only treasury withdrawal of `amountUsdc` (pooled funds → owner). Returns tx hash. */
+  async function refund(amountUsdc) {
+    const amount = lib.parseUnits(String(amountUsdc), USDC_DECIMALS);
+    const data = iface.encodeFunctionData('refund', [amount]);
+    return signer.send({ to: contractAddress, data });
+  }
+
+  /** Escrow USDC balance in human units (view call; requires rpcUrl). */
+  async function balance() {
+    if (!readContract) throw new Error('Escrow balance requires rpcUrl');
+    const raw = await readContract.balance();
+    return lib.formatUnits(raw, USDC_DECIMALS);
+  }
+
+  return { release, refund, balance };
 }
 
 /**
@@ -102,7 +124,7 @@ function escrowFromEnv(env = process.env) {
     throw new Error(`Unknown ESCROW_SIGNER "${mode}". Options: fake, raw, privy`);
   }
 
-  return createEscrowService({ contractAddress: chain.escrowAddress, signer });
+  return createEscrowService({ contractAddress: chain.escrowAddress, signer, rpcUrl: chain.rpcUrl });
 }
 
 module.exports = {

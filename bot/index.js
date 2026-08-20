@@ -240,13 +240,16 @@ function startFromEnv() {
     console.error('TELEGRAM_BOT_TOKEN is not set. Copy .env.example to .env and fill it in.');
     process.exit(1);
   }
-  // Wire operator commands only if an admin is configured.
+  // Wire operator commands only if an admin is configured AND the backend ops API
+  // is reachable (#18 — the bot holds no chain key; refunds go via the backend).
   let admin = null;
   const adminId = process.env.ADMIN_TELEGRAM_ID;
-  if (adminId) {
+  if (adminId && process.env.OPS_API_URL && process.env.OPS_API_SECRET) {
     const { escrowOperatorFromEnv, ordersAdminFromEnv } = require('./services/operator');
     const { activeChain } = require('../chains');
     admin = { adminId, escrow: escrowOperatorFromEnv(), orders: ordersAdminFromEnv(), chain: activeChain() };
+  } else if (adminId) {
+    console.warn('OPS_API_URL/OPS_API_SECRET not set — operator commands disabled (bot signs nothing).');
   } else {
     console.warn('ADMIN_TELEGRAM_ID not set — operator commands are disabled.');
   }

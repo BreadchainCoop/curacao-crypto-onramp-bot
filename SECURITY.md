@@ -69,14 +69,18 @@ Verified on Base Sepolia (operator wallet is the escrow owner; a real `release`
 was signed by Privy). See `docs/plans/privy-operator-custody.md` (Unit A1, #22).
 
 **Set `ESCROW_SIGNER=privy` in production and do NOT set `ADMIN_WALLET_PRIVATE_KEY`
-on the backend** — the raw key path (`raw`) is a local fallback only. The bot
-still holds the raw key for admin refund via `bot/services/operator.js`; removing
-that is #18 (Unit A2).
+on the backend** — the raw key path (`raw`) is a local fallback only.
 
-**Outstanding before mainnet:** (a) #18 — take the raw key off the bot; (b) #32/#33
-— Escrow v2 role split so the operator can only `release` (bounded by caps/pause),
-with a Safe as committee/owner (#23); (c) a Privy wallet policy allowlisting the
-escrow contract + `release`.
+**The bot holds no chain key (#18 done).** `bot/services/operator.js` is now an
+HTTP client to the backend ops API (`/ops/escrow/*`, bearer `OPS_API_SECRET`);
+admin balance/refund are signed by the backend via Privy. The refund CAS/ordering
+invariant stays in `bot/flows/admin.js`.
+
+**Outstanding before mainnet:** (a) #32/#33 — Escrow v2 role split so the operator
+can only `release` (bounded by caps/pause), with a Safe as committee/owner (#23);
+(b) a Privy wallet policy allowlisting the escrow contract + `release`; (c) #19 —
+least-privilege bot DB role (admin refund CAS still runs on the bot's Supabase
+service-role access).
 
 ## 5. ✅ Rate limiting on webhook endpoints
 

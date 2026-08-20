@@ -1,45 +1,43 @@
-// Operator services for the bot's admin commands (Issue #10).
+// Operator services for the bot's admin commands (Issue #10, #18).
 //
-// NOTE: this duplicates a little of backend/services (escrow + orders) because the
-// bot and backend are separate processes. TODO: extract a shared package so the
-// contract/DB wiring lives in one place.
+// The bot holds NO chain key (#18 / Unit A2): escrow balance/refund go through
+// the backend's authenticated ops API, and the BACKEND signs on-chain via the
+// Privy operator wallet. This file is now a thin HTTP client plus the Supabase
+// admin orders view (which stays on the bot until #19).
 
-// ─── Escrow operator (balance + refund) ─────────────────
-const ESCROW_OPERATOR_ABI = [
-  'function balance() view returns (uint256)',
-  'function refund(uint256 amount)',
-];
-const USDC_DECIMALS = 6;
-
-function createEscrowOperator({ rpcUrl, privateKey, contractAddress, ethers }) {
-  if (!rpcUrl || !privateKey || !contractAddress) {
-    throw new Error('Escrow operator requires rpcUrl, privateKey, and contractAddress');
+// ─── Escrow operator (balance + refund via backend ops API) ──
+function createEscrowOperator({ opsBaseUrl, opsSecret, fetchImpl = fetch }) {
+  if (!opsBaseUrl || !opsSecret) {
+    throw new Error('Escrow operator requires opsBaseUrl and opsSecret');
   }
-  const lib = ethers ?? require('ethers');
-  const provider = new lib.JsonRpcProvider(rpcUrl);
-  const wallet = new lib.Wallet(privateKey, provider);
-  const contract = new lib.Contract(contractAddress, ESCROW_OPERATOR_ABI, wallet);
+  const base = opsBaseUrl.replace(/\/+$/, '');
+  const authHeader = { Authorization: `Bearer ${opsSecret}` };
 
   return {
     async balance() {
-      const raw = await contract.balance();
-      return lib.formatUnits(raw, USDC_DECIMALS);
+      const resp = await fetchImpl(`${base}/ops/escrow/balance`, { headers: authHeader });
+      if (!resp.ok) throw new Error(`ops balance failed: HTTP ${resp.status}`);
+      const data = await resp.json();
+      return data.balance;
     },
     async refund(amountUsdc) {
-      const tx = await contract.refund(lib.parseUnits(String(amountUsdc), USDC_DECIMALS));
-      const receipt = await tx.wait();
-      return (receipt && receipt.hash) || tx.hash;
+      const resp = await fetchImpl(`${base}/ops/escrow/refund`, {
+        method: 'POST',
+        headers: { ...authHeader, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amountUsdc }),
+      });
+      if (!resp.ok) throw new Error(`ops refund failed: HTTP ${resp.status}`);
+      const data = await resp.json();
+      if (!data.txHash) throw new Error('ops refund returned no txHash');
+      return data.txHash;
     },
   };
 }
 
 function escrowOperatorFromEnv(env = process.env) {
-  const { activeChain } = require('../../chains');
-  const chain = activeChain(env);
   return createEscrowOperator({
-    rpcUrl: chain.rpcUrl,
-    privateKey: chain.privateKey,
-    contractAddress: chain.escrowAddress,
+    opsBaseUrl: env.OPS_API_URL,
+    opsSecret: env.OPS_API_SECRET,
   });
 }
 
