@@ -30,15 +30,30 @@ services:
         sync: false
       - key: RPC_URL
         sync: false
+      # Legacy raw signer key — only needed while ESCROW_SIGNER=raw. Remove once
+      # the Privy operator path is verified (SECURITY.md #4).
       - key: ADMIN_WALLET_PRIVATE_KEY
         sync: false
       - key: ESCROW_CONTRACT_ADDRESS
+        sync: false
+      # Privy OPERATOR app (escrow release signer). Backend host only — never the
+      # bot. Key material stays sharded in Privy's MPC/TEE; these are request creds.
+      - key: PRIVY_OPERATOR_APP_ID
+        sync: false
+      - key: PRIVY_OPERATOR_APP_SECRET
+        sync: false
+      - key: PRIVY_OPERATOR_AUTHORIZATION_KEY
+        sync: false
+      - key: PRIVY_OPERATOR_WALLET_ID
         sync: false
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       # ── Non-secret config (override in the dashboard if needed) ──
+      # Escrow release signer: privy (MPC operator wallet) | raw | fake.
+      - key: ESCROW_SIGNER
+        value: raw
       - key: SENTOO_BASE_URL
         value: https://api.sentoo.io
       - key: WEBHOOK_RATE_MAX

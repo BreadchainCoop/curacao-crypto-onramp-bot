@@ -35,8 +35,15 @@ Hosting model for the MVP:
    | `SENTOO_API_KEY`, `SENTOO_MERCHANT_ID`, `SENTOO_WEBHOOK_SECRET` | Sentoo merchant portal |
    | `SYNAPS_WEBHOOK_SECRET` | Synaps manager |
    | `RPC_URL` | Alchemy (chosen chain) |
-   | `ADMIN_WALLET_PRIVATE_KEY` | funded deployer/owner wallet |
    | `ESCROW_CONTRACT_ADDRESS` | from the contract deploy |
+   | `ESCROW_SIGNER` | `privy` in production (MPC signer; no raw key on host) |
+   | `PRIVY_OPERATOR_APP_ID` / `_APP_SECRET` | operator Privy app (separate from users app) |
+   | `PRIVY_OPERATOR_AUTHORIZATION_KEY` | P-256 key authorizing wallet ops |
+   | `PRIVY_OPERATOR_WALLET_ID` | operator server wallet id (its address is the escrow owner) |
+
+   Do **not** set `ADMIN_WALLET_PRIVATE_KEY` on the backend when `ESCROW_SIGNER=privy`
+   — it's a local-only fallback (`ESCROW_SIGNER=raw`). The operator wallet's
+   address must be the escrow owner on-chain (`contracts/scripts/transfer-ownership.js`).
 
 4. Deploy. Confirm health: open `https://<your-app>.onrender.com/health` → `{"ok":true}`.
 5. **Auto-deploy** is on: every push to `main` redeploys.

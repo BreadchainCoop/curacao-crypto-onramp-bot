@@ -58,16 +58,25 @@ Only placeholders and documentation/comment references appear — no real values
 contains placeholder values only. Re-run this scan before any public release or
 key rotation.
 
-## 4. ❌ Admin wallet uses a hardware wallet or secrets manager
+## 4. 🟡 Admin wallet uses a hardware wallet or secrets manager
 
-**Testnet-only today.** `ADMIN_WALLET_PRIVATE_KEY` is a plain env var, read by
-`backend/services/escrow.js` and `bot/services/operator.js` at runtime (never
-hardcoded, never logged). This is acceptable for Base Sepolia but **must not be
-used on mainnet.**
+**Backend escrow signing now uses a Privy operator server wallet (MPC).** The
+release path in `backend/services/escrow.js` goes through a signer seam
+(`ESCROW_SIGNER=fake|raw|privy`); with `privy`, the escrow signing key is sharded
+in Privy's MPC/TEE and never present on the host — the backend holds only request
+credentials (`PRIVY_OPERATOR_APP_ID/_APP_SECRET/_AUTHORIZATION_KEY/_WALLET_ID`).
+Verified on Base Sepolia (operator wallet is the escrow owner; a real `release`
+was signed by Privy). See `docs/plans/privy-operator-custody.md` (Unit A1, #22).
 
-**Outstanding before mainnet:** move the owner key to a hardware wallet, a cloud
-KMS/secrets manager, or a multisig; remove the raw private key from the runtime
-env entirely.
+**Set `ESCROW_SIGNER=privy` in production and do NOT set `ADMIN_WALLET_PRIVATE_KEY`
+on the backend** — the raw key path (`raw`) is a local fallback only. The bot
+still holds the raw key for admin refund via `bot/services/operator.js`; removing
+that is #18 (Unit A2).
+
+**Outstanding before mainnet:** (a) #18 — take the raw key off the bot; (b) #32/#33
+— Escrow v2 role split so the operator can only `release` (bounded by caps/pause),
+with a Safe as committee/owner (#23); (c) a Privy wallet policy allowlisting the
+escrow contract + `release`.
 
 ## 5. ✅ Rate limiting on webhook endpoints
 
