@@ -24,6 +24,34 @@ Treat contract and signing changes as custody-sensitive. Read `AGENTS.md`,
 - Avoid upgradeability, assembly, unchecked arithmetic, and new dependencies
   unless the requirement and review justify them.
 
+## Interface-first contract standards
+
+Adopt the contract *standards* from Wonderland's Foundry boilerplate
+(interface-first, complete NatSpec, events on state changes, custom errors on the
+interface) **without** migrating to Foundry. Stay on Hardhat + ethers v6 +
+OpenZeppelin v5. The Wonderland brand/tooling is not the point — the standards
+are. Do **not** copy Foundry CI, remappings, `forge` commands, Bulloak, or
+lintspec.
+
+- **Interface-first.** The public API lives on an interface (e.g. `IEscrow`):
+  events, custom errors, external function signatures, and their NatSpec. The
+  implementation is declared `contract Escrow is IEscrow, ...`.
+- **`@inheritdoc`.** Implemented functions carry `/// @inheritdoc IEscrow` rather
+  than repeating the doc comment; NatSpec is authored once, on the interface.
+- **Events on every state change.** Every state-changing function emits an event
+  **after** its effects (checks-effects-interactions). Declare events on the
+  interface.
+- **Complete NatSpec.** `@notice` on every function/event describing purpose;
+  `@param` for every parameter; `@return` for every return value, **including
+  public getters**.
+- **Custom errors on the interface**, named `Escrow_Reason`
+  (e.g. `Escrow_OnlyOperator`, `Escrow_ZeroAddress`, `Escrow_ZeroAmount`). Prefer
+  them over `require` strings; revert with the typed error.
+- Keep `ReentrancyGuard` + `SafeERC20`. Do not add Foundry or new dependencies.
+
+Layout: put the interface at `contracts/src/interfaces/IEscrow.sol` and the
+implementation at `contracts/src/Escrow.sol`.
+
 ## Hardhat and ethers v6
 
 - Follow the network definitions in `contracts/hardhat.config.js` and shared

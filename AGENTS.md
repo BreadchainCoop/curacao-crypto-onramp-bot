@@ -133,6 +133,10 @@ explicitly requests it.
   custody accidentally.
 - `Escrow.release` and `Escrow.refund` are owner-only pooled-fund operations.
   Changes require contract tests and explicit human review.
+- For any contract, contract-test, or deploy-script work, follow
+  `.agents/skills/solidity-hardhat-openzeppelin/SKILL.md` (interface-first
+  `IEscrow`, `@inheritdoc`, events on state changes, complete NatSpec, and
+  `Escrow_Reason` custom errors; stay on Hardhat, do not migrate to Foundry).
 - Never hardcode or log private keys, provider secrets, tokens, RPC credentials,
   webhook secrets, or Supabase credentials.
 - A raw `ADMIN_WALLET_PRIVATE_KEY` environment variable is testnet-only. Do not
