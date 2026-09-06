@@ -127,6 +127,11 @@ function formatQuote(q) {
     else if (q.fee.floored) note += `, min ${fmtXcg(q.fee.flatMinXcg)}`;
     lines.push(`Fee (${note}): ${fmtXcg(q.fee.amountXcg)} XCG`);
   }
+  if (q.sentoo && q.sentoo.enabled && q.sentoo.amountXcg > 0) {
+    let note = `${q.sentoo.pct}%`;
+    if (q.sentoo.capped) note += `, capped`;
+    lines.push(`Processing (${note}): ${fmtXcg(q.sentoo.amountXcg)} XCG`);
+  }
   lines.push('━━━━━━━━━━━━━━━');
   lines.push(`💰 <b>You pay: ${fmtXcg(q.totalXcg)} XCG</b>`);
   lines.push(`🪙 <b>You receive: ${fmtAmount(q.usdcAmount)} USDC</b>`);

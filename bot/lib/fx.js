@@ -1,9 +1,10 @@
 // FX / rate calculation for the on-ramp.
 //
 // Pure functions: given a USDC amount the user wants to buy, compute the XCG
-// (Caribbean guilder) they must pay, broken down into subtotal, FX spread, and
-// an optional platform fee. The full breakdown is returned so the bot can show
-// the spread and the fee as SEPARATE line items before the user confirms.
+// (Caribbean guilder) they must pay, broken down into subtotal, FX spread, an
+// optional platform fee, and the Sentoo payment-processor pass-through. The full
+// breakdown is returned so the bot can show each as SEPARATE line items before
+// the user confirms.
 //
 // Money flow (MVP): the platform fee is captured in fiat XCG — the user pays a
 // little more in guilders and the fee accrues in the operator's Sentoo/bank
@@ -26,6 +27,15 @@ const DEFAULTS = {
   feePct: 2.5, // platform fee, percent of order value (USDC notional).
   feeFlatMinXcg: 0.5, // minimum fee in XCG, so tiny orders still cover costs.
   feeMaxXcg: 150, // maximum fee in XCG, so large orders aren't charged an astronomical fee.
+  // ── Sentoo payment-processor pass-through ──
+  // Sentoo (the fiat rail) charges a fee on every successful payment: on the
+  // Account-to-Account base plan it is `sentooPct`% of the amount collected,
+  // capped at `sentooCapUsd` USD per transaction. It is a real cost of goods, so
+  // it is passed through to the customer (grossed up — see quoteUsdcPurchase) on
+  // top of the spread and platform fee, never absorbed by them.
+  sentooEnabled: true,
+  sentooPct: 1.0, // Sentoo fee, percent of the total amount collected.
+  sentooCapUsd: 1.5, // Sentoo per-transaction cap, in USD ($1.50 A2A base plan).
 };
 
 // Round to 2 decimals (XCG cents), half-up, avoiding binary-float drift.
@@ -57,6 +67,14 @@ function validateConfig(cfg) {
   if (cfg.feeMaxXcg < cfg.feeFlatMinXcg) {
     throw new RangeError('feeMaxXcg must be >= feeFlatMinXcg');
   }
+  // sentooPct must stay strictly under 100 so the gross-up (÷ (1 - s)) is finite
+  // and positive.
+  if (!(cfg.sentooPct >= 0) || cfg.sentooPct >= 100 || !Number.isFinite(cfg.sentooPct)) {
+    throw new RangeError('sentooPct must be a finite number in [0, 100)');
+  }
+  if (!(cfg.sentooCapUsd >= 0) || !Number.isFinite(cfg.sentooCapUsd)) {
+    throw new RangeError('sentooCapUsd must be a finite number >= 0');
+  }
 }
 
 /**
@@ -80,6 +98,9 @@ function loadFxConfig(env = process.env) {
     feePct: num(env.FX_FEE_PCT, DEFAULTS.feePct),
     feeFlatMinXcg: num(env.FX_FEE_FLAT_MIN_XCG, DEFAULTS.feeFlatMinXcg),
     feeMaxXcg: num(env.FX_FEE_MAX_XCG, DEFAULTS.feeMaxXcg),
+    sentooEnabled: bool(env.SENTOO_FEE_ENABLED, DEFAULTS.sentooEnabled),
+    sentooPct: num(env.SENTOO_FEE_PCT, DEFAULTS.sentooPct),
+    sentooCapUsd: num(env.SENTOO_FEE_CAP_USD, DEFAULTS.sentooCapUsd),
   };
 }
 
@@ -125,7 +146,29 @@ function quoteUsdcPurchase(usdcAmount, config = {}) {
     feeXcg = round2(feeXcg);
   }
 
-  const totalXcg = round2(subtotalXcg + spreadXcg + feeXcg);
+  // Sentoo payment-processor fee, passed through to the customer and grossed up
+  // so that after Sentoo takes its cut we still net subtotal + spread + fee.
+  // Sentoo charges `sentooPct`% of the TOTAL amount collected (T), so the cut
+  // comes off the top: T = base + s·T  ⇒  pass-through = base · s / (1 − s).
+  // Above the per-transaction USD cap, Sentoo charges a flat amount instead, so
+  // the pass-through is the lesser of the grossed-up value and the cap.
+  const sentooCapXcg = round2(cfg.sentooCapUsd * cfg.pegRate);
+  let sentooXcg = 0;
+  let sentooCapped = false;
+  if (cfg.sentooEnabled && cfg.sentooPct > 0) {
+    const base = subtotalXcg + spreadXcg + feeXcg;
+    const s = cfg.sentooPct / 100;
+    const grossedUp = (base * s) / (1 - s);
+    if (grossedUp > sentooCapXcg) {
+      sentooXcg = sentooCapXcg; // flat cap binds on larger orders
+      sentooCapped = true;
+    } else {
+      sentooXcg = grossedUp;
+    }
+    sentooXcg = round2(sentooXcg);
+  }
+
+  const totalXcg = round2(subtotalXcg + spreadXcg + feeXcg + sentooXcg);
 
   return {
     usdcAmount,
@@ -141,6 +184,14 @@ function quoteUsdcPurchase(usdcAmount, config = {}) {
       amountXcg: feeXcg,
       floored: feeFloored,
       capped: feeCapped,
+    },
+    sentoo: {
+      enabled: cfg.sentooEnabled,
+      pct: cfg.sentooEnabled ? cfg.sentooPct : 0,
+      capUsd: cfg.sentooCapUsd,
+      capXcg: sentooCapXcg,
+      amountXcg: sentooXcg,
+      capped: sentooCapped,
     },
     totalXcg,
     // All-in XCG paid per 1 USDC — display/telemetry only.
