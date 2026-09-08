@@ -29,7 +29,7 @@ const DEFAULTS = {
   feeEnabled: true, // platform "fee switch" — captures a fee into the exchange.
   feePct: 3, // single service fee, percent of order value (USDC notional).
   feeFlatMinXcg: 0.5, // minimum fee in XCG, so tiny orders still cover costs.
-  feeMaxXcg: 150, // maximum fee in XCG, so large orders aren't charged an astronomical fee.
+  feeMaxXcg: 182, // max fee in XCG (~$100 at the 1.82 peg) — a volume discount for large orders.
   // ── Sentoo payment-processor pass-through ──
   // Sentoo (the fiat rail) charges a fee on every successful payment: on the
   // Account-to-Account base plan it is `sentooPct`% of the amount collected,
