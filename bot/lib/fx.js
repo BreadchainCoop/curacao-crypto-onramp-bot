@@ -29,7 +29,10 @@ const DEFAULTS = {
   feeEnabled: true, // platform "fee switch" — captures a fee into the exchange.
   feePct: 3, // single service fee, percent of order value (USDC notional).
   feeFlatMinXcg: 0.5, // minimum fee in XCG, so tiny orders still cover costs.
-  feeMaxXcg: 150, // maximum fee in XCG, so large orders aren't charged an astronomical fee.
+  // Maximum fee, in USD, so large orders get a volume discount instead of an
+  // astronomical fee. Converted to XCG at the peg (like the Sentoo cap) so it
+  // stays a true $100 even if the peg changes.
+  feeMaxUsd: 100,
   // ── Sentoo payment-processor pass-through ──
   // Sentoo (the fiat rail) charges a fee on every successful payment: on the
   // Account-to-Account base plan it is `sentooPct`% of the amount collected,
@@ -64,11 +67,12 @@ function validateConfig(cfg) {
   if (!(cfg.feeFlatMinXcg >= 0) || !Number.isFinite(cfg.feeFlatMinXcg)) {
     throw new RangeError('feeFlatMinXcg must be a finite number >= 0');
   }
-  if (!(cfg.feeMaxXcg >= 0) || !Number.isFinite(cfg.feeMaxXcg)) {
-    throw new RangeError('feeMaxXcg must be a finite number >= 0');
+  if (!(cfg.feeMaxUsd >= 0) || !Number.isFinite(cfg.feeMaxUsd)) {
+    throw new RangeError('feeMaxUsd must be a finite number >= 0');
   }
-  if (cfg.feeMaxXcg < cfg.feeFlatMinXcg) {
-    throw new RangeError('feeMaxXcg must be >= feeFlatMinXcg');
+  // Compare the cap (USD → XCG at the peg) against the XCG floor.
+  if (cfg.feeMaxUsd * cfg.pegRate < cfg.feeFlatMinXcg) {
+    throw new RangeError('feeMaxUsd (in XCG) must be >= feeFlatMinXcg');
   }
   // sentooPct must stay strictly under 100 so the gross-up (÷ (1 - s)) is finite
   // and positive.
@@ -100,7 +104,7 @@ function loadFxConfig(env = process.env) {
     feeEnabled: bool(env.FX_FEE_ENABLED, DEFAULTS.feeEnabled),
     feePct: num(env.FX_FEE_PCT, DEFAULTS.feePct),
     feeFlatMinXcg: num(env.FX_FEE_FLAT_MIN_XCG, DEFAULTS.feeFlatMinXcg),
-    feeMaxXcg: num(env.FX_FEE_MAX_XCG, DEFAULTS.feeMaxXcg),
+    feeMaxUsd: num(env.FX_FEE_MAX_USD, DEFAULTS.feeMaxUsd),
     sentooEnabled: bool(env.SENTOO_FEE_ENABLED, DEFAULTS.sentooEnabled),
     sentooPct: num(env.SENTOO_FEE_PCT, DEFAULTS.sentooPct),
     sentooCapUsd: num(env.SENTOO_FEE_CAP_USD, DEFAULTS.sentooCapUsd),
@@ -132,6 +136,8 @@ function quoteUsdcPurchase(usdcAmount, config = {}) {
   const subtotalXcg = round2(usdcAmount * cfg.pegRate);
   const spreadXcg = round2(subtotalXcg * (cfg.spreadPct / 100));
 
+  // Cap is set in USD; convert to XCG at the peg so it stays a true dollar cap.
+  const feeMaxXcg = round2(cfg.feeMaxUsd * cfg.pegRate);
   let feeXcg = 0;
   let feeFloored = false;
   let feeCapped = false;
@@ -140,8 +146,8 @@ function quoteUsdcPurchase(usdcAmount, config = {}) {
     if (feeFromPct < cfg.feeFlatMinXcg) {
       feeXcg = cfg.feeFlatMinXcg; // tiny orders still cover a minimum.
       feeFloored = true;
-    } else if (feeFromPct > cfg.feeMaxXcg) {
-      feeXcg = cfg.feeMaxXcg; // large orders are capped so the fee stays sane.
+    } else if (feeFromPct > feeMaxXcg) {
+      feeXcg = feeMaxXcg; // large orders capped (volume discount) so the fee stays sane.
       feeCapped = true;
     } else {
       feeXcg = feeFromPct;
@@ -183,7 +189,8 @@ function quoteUsdcPurchase(usdcAmount, config = {}) {
       enabled: cfg.feeEnabled,
       pct: cfg.feeEnabled ? cfg.feePct : 0,
       flatMinXcg: cfg.feeFlatMinXcg,
-      maxXcg: cfg.feeMaxXcg,
+      maxUsd: cfg.feeMaxUsd,
+      maxXcg: feeMaxXcg,
       amountXcg: feeXcg,
       floored: feeFloored,
       capped: feeCapped,

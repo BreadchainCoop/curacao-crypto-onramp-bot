@@ -45,9 +45,9 @@ test('flat minimum fee applies to small orders', () => {
 
 test('maximum fee cap applies to large orders', () => {
   const q = quoteUsdcPurchase(10000, {
-    pegRate: 1, spreadPct: 0, feeEnabled: true, feePct: 2.5, feeFlatMinXcg: 0.5, feeMaxXcg: 150, sentooEnabled: false,
+    pegRate: 1, spreadPct: 0, feeEnabled: true, feePct: 2.5, feeFlatMinXcg: 0.5, feeMaxUsd: 150, sentooEnabled: false,
   });
-  // 2.5% of 10000 = 250 > 150 cap -> charge the 150 cap
+  // 2.5% of 10000 = 250 > 150 cap (at peg 1, $150 = 150 XCG) -> charge the cap
   assert.equal(q.fee.amountXcg, 150);
   assert.equal(q.fee.capped, true);
   assert.equal(q.fee.floored, false);
@@ -158,7 +158,7 @@ test('full stack: subtotal + spread + platform fee + Sentoo reconcile', () => {
   // Realistic defaults: peg 1.82, spread 1.5%, fee 2.5%, Sentoo 1% / $1.50 cap.
   const q = quoteUsdcPurchase(100, {
     pegRate: 1.82, spreadPct: 1.5,
-    feeEnabled: true, feePct: 2.5, feeFlatMinXcg: 0.5, feeMaxXcg: 150,
+    feeEnabled: true, feePct: 2.5, feeFlatMinXcg: 0.5, feeMaxUsd: 150,
     sentooEnabled: true, sentooPct: 1, sentooCapUsd: 1.5,
   });
   assert.equal(q.subtotalXcg, 182);
@@ -182,4 +182,42 @@ test('loadFxConfig reads Sentoo env with per-field fallbacks', () => {
   assert.equal(cfg.sentooCapUsd, 2);
   assert.equal(cfg.sentooEnabled, DEFAULTS.sentooEnabled); // fallback
   assert.equal(loadFxConfig({ SENTOO_FEE_ENABLED: 'off' }).sentooEnabled, false);
+});
+
+// ── USD-denominated fee cap ────────────────────────────────────────────────
+
+test('fee cap is set in USD and converts to XCG at the peg', () => {
+  // $100 cap at peg 1.82 -> 182 XCG. A large order (3% would be far more) caps.
+  const q = quoteUsdcPurchase(10000, {
+    pegRate: 1.82, spreadPct: 0, feeEnabled: true, feePct: 3,
+    feeMaxUsd: 100, sentooEnabled: false,
+  });
+  assert.equal(q.fee.maxUsd, 100);
+  assert.equal(q.fee.maxXcg, 182); // 100 * 1.82
+  assert.equal(q.fee.amountXcg, 182); // 3% of 18200 = 546 > 182 cap
+  assert.equal(q.fee.capped, true);
+});
+
+test('fee cap in XCG scales with the peg', () => {
+  const q = quoteUsdcPurchase(10000, {
+    pegRate: 1.75, spreadPct: 0, feeEnabled: true, feePct: 3,
+    feeMaxUsd: 100, sentooEnabled: false,
+  });
+  assert.equal(q.fee.maxXcg, 175); // 100 * 1.75 — still a true $100 cap
+  assert.equal(q.fee.amountXcg, 175);
+  assert.equal(q.fee.capped, true);
+});
+
+test('rejects a fee cap below the flat minimum', () => {
+  // feeMaxUsd * peg must be >= feeFlatMinXcg.
+  assert.throws(
+    () => quoteUsdcPurchase(100, { pegRate: 1, feeMaxUsd: 0.1, feeFlatMinXcg: 0.5 }),
+    RangeError,
+  );
+  assert.throws(() => quoteUsdcPurchase(100, { feeMaxUsd: -1 }), RangeError);
+});
+
+test('loadFxConfig reads FX_FEE_MAX_USD with a fallback', () => {
+  assert.equal(loadFxConfig({ FX_FEE_MAX_USD: '250' }).feeMaxUsd, 250);
+  assert.equal(loadFxConfig({}).feeMaxUsd, DEFAULTS.feeMaxUsd);
 });
