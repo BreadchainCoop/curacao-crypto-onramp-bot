@@ -16,7 +16,7 @@ const fmtAmount = (n) => Number(n).toLocaleString('en-US');
 // Per-order USDC bounds (override with BUY_MIN_USDC / BUY_MAX_USDC).
 function buyLimits(env = process.env) {
   return {
-    min: Number(env.BUY_MIN_USDC) || 5,
+    min: Number(env.BUY_MIN_USDC) || 10,
     max: Number(env.BUY_MAX_USDC) || 25000,
   };
 }
