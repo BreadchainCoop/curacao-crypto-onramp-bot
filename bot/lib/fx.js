@@ -22,9 +22,12 @@ const { USD_SELL_RATE } = require('./cbcsRates');
 
 const DEFAULTS = {
   pegRate: USD_SELL_RATE, // CBCS commercial-bank USD "Sell" rate (XCG per USD).
-  spreadPct: 1.5, // FX margin baked into the rate, percent.
+  // FX spread folded into the single service fee below — XCG is hard-pegged to
+  // USD, so there is no currency volatility to hedge separately. Kept as a
+  // configurable knob (FX_SPREAD_PCT) for chains/currencies that do float.
+  spreadPct: 0, // FX margin baked into the rate, percent.
   feeEnabled: true, // platform "fee switch" — captures a fee into the exchange.
-  feePct: 2.5, // platform fee, percent of order value (USDC notional).
+  feePct: 3, // single service fee, percent of order value (USDC notional).
   feeFlatMinXcg: 0.5, // minimum fee in XCG, so tiny orders still cover costs.
   feeMaxXcg: 150, // maximum fee in XCG, so large orders aren't charged an astronomical fee.
   // ── Sentoo payment-processor pass-through ──
