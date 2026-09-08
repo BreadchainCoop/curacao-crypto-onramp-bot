@@ -113,14 +113,18 @@ async function cancel(ctx) {
   });
 }
 
-/** Render a quote as an HTML message with spread and fee as separate lines. */
+/** Render a quote as an HTML message with each margin component on its own line. */
 function formatQuote(q) {
   const lines = [
     `<b>Buy ${fmtAmount(q.usdcAmount)} USDC</b>`,
     '',
     `Subtotal (${q.pegRate} XCG/USDC): ${fmtXcg(q.subtotalXcg)} XCG`,
-    `FX spread (${q.spread.pct}%): ${fmtXcg(q.spread.amountXcg)} XCG`,
   ];
+  // Only show the spread when it is actually charged — when it is folded into the
+  // service fee (spread 0), a "0%" line would just be noise.
+  if (q.spread.amountXcg > 0) {
+    lines.push(`FX spread (${q.spread.pct}%): ${fmtXcg(q.spread.amountXcg)} XCG`);
+  }
   if (q.fee.enabled) {
     let note = `${q.fee.pct}%`;
     if (q.fee.capped) note += `, capped at ${fmtXcg(q.fee.maxXcg)}`;
