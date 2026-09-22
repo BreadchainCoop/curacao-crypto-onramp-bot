@@ -37,8 +37,14 @@ const DEFAULTS = {
   // it is passed through to the customer (grossed up — see quoteUsdcPurchase) on
   // top of the spread and platform fee, never absorbed by them.
   sentooEnabled: true,
-  sentooPct: 1.0, // Sentoo fee, percent of the total amount collected.
-  sentooCapUsd: 1.5, // Sentoo per-transaction cap, in USD ($1.50 A2A base plan).
+  sentooPct: 1.0, // Sentoo base fee, percent of the total collected (capped below).
+  sentooCapUsd: 1.5, // Sentoo per-transaction cap on the base fee, in USD ($1.50).
+  // Extra UNCAPPED fee Sentoo charges when the customer's bank differs from our
+  // merchant bank ("via escrow" inter-bank A2A). The paid amount is fixed before
+  // the bank is known, so we price this in by default (worst case) and simply
+  // keep it on a same-bank payment. Set 0 to disable, or a blended value once the
+  // same/inter-bank mix is known.
+  sentooInterbankPct: 0.4,
 };
 
 // Round to 2 decimals (XCG cents), half-up, avoiding binary-float drift.
@@ -78,6 +84,13 @@ function validateConfig(cfg) {
   if (!(cfg.sentooCapUsd >= 0) || !Number.isFinite(cfg.sentooCapUsd)) {
     throw new RangeError('sentooCapUsd must be a finite number >= 0');
   }
+  if (!(cfg.sentooInterbankPct >= 0) || !Number.isFinite(cfg.sentooInterbankPct)) {
+    throw new RangeError('sentooInterbankPct must be a finite number >= 0');
+  }
+  // Combined Sentoo rate must stay strictly under 100% for the gross-up.
+  if (cfg.sentooPct + cfg.sentooInterbankPct >= 100) {
+    throw new RangeError('sentooPct + sentooInterbankPct must be < 100');
+  }
 }
 
 /**
@@ -104,6 +117,7 @@ function loadFxConfig(env = process.env) {
     sentooEnabled: bool(env.SENTOO_FEE_ENABLED, DEFAULTS.sentooEnabled),
     sentooPct: num(env.SENTOO_FEE_PCT, DEFAULTS.sentooPct),
     sentooCapUsd: num(env.SENTOO_FEE_CAP_USD, DEFAULTS.sentooCapUsd),
+    sentooInterbankPct: num(env.SENTOO_INTERBANK_PCT, DEFAULTS.sentooInterbankPct),
   };
 }
 
@@ -150,25 +164,28 @@ function quoteUsdcPurchase(usdcAmount, config = {}) {
   }
 
   // Sentoo payment-processor fee, passed through to the customer and grossed up
-  // so that after Sentoo takes its cut we still net subtotal + spread + fee.
-  // Sentoo charges `sentooPct`% of the TOTAL amount collected (T), so the cut
-  // comes off the top: T = base + s·T  ⇒  pass-through = base · s / (1 − s).
-  // Above the per-transaction USD cap, Sentoo charges a flat amount instead, so
-  // the pass-through is the lesser of the grossed-up value and the cap.
+  // so that after Sentoo takes its cut we still net subtotal + spread + fee. The
+  // cut comes off the TOTAL collected (T), in two parts:
+  //   • sentooPct% of T, capped at sentooCapUsd (the same-bank base fee), and
+  //   • sentooInterbankPct% of T, UNCAPPED (added when the customer's bank differs
+  //     from our merchant bank; priced in by default since T is fixed before the
+  //     bank is known — kept as margin on a same-bank payment).
+  // Cut C(T) = min(s1·T, cap) + s2·T. We solve T − C(T) = base per regime:
+  //   uncapped 1%:  T = base / (1 − s1 − s2)
+  //   capped   1%:  T = (base + cap) / (1 − s2)
   const sentooCapXcg = round2(cfg.sentooCapUsd * cfg.pegRate);
   let sentooXcg = 0;
   let sentooCapped = false;
-  if (cfg.sentooEnabled && cfg.sentooPct > 0) {
+  if (cfg.sentooEnabled && (cfg.sentooPct > 0 || cfg.sentooInterbankPct > 0)) {
     const base = subtotalXcg + spreadXcg + feeXcg;
-    const s = cfg.sentooPct / 100;
-    const grossedUp = (base * s) / (1 - s);
-    if (grossedUp > sentooCapXcg) {
-      sentooXcg = sentooCapXcg; // flat cap binds on larger orders
+    const s1 = cfg.sentooPct / 100;
+    const s2 = cfg.sentooInterbankPct / 100;
+    let total = base / (1 - s1 - s2); // assume the base fee is below its cap
+    if (s1 * total > sentooCapXcg) {
+      total = (base + sentooCapXcg) / (1 - s2); // base fee hits its flat cap
       sentooCapped = true;
-    } else {
-      sentooXcg = grossedUp;
     }
-    sentooXcg = round2(sentooXcg);
+    sentooXcg = round2(total - base);
   }
 
   const totalXcg = round2(subtotalXcg + spreadXcg + feeXcg + sentooXcg);
@@ -191,6 +208,7 @@ function quoteUsdcPurchase(usdcAmount, config = {}) {
     sentoo: {
       enabled: cfg.sentooEnabled,
       pct: cfg.sentooEnabled ? cfg.sentooPct : 0,
+      interbankPct: cfg.sentooEnabled ? cfg.sentooInterbankPct : 0,
       capUsd: cfg.sentooCapUsd,
       capXcg: sentooCapXcg,
       amountXcg: sentooXcg,

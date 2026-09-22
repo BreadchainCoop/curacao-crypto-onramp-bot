@@ -132,9 +132,9 @@ function formatQuote(q) {
     lines.push(`Fee (${note}): ${fmtXcg(q.fee.amountXcg)} XCG`);
   }
   if (q.sentoo && q.sentoo.enabled && q.sentoo.amountXcg > 0) {
-    let note = `${q.sentoo.pct}%`;
-    if (q.sentoo.capped) note += `, capped`;
-    lines.push(`Processing (${note}): ${fmtXcg(q.sentoo.amountXcg)} XCG`);
+    // Blend of the capped base fee + the uncapped inter-bank fee, so show the
+    // amount rather than a single percentage.
+    lines.push(`Processing: ${fmtXcg(q.sentoo.amountXcg)} XCG`);
   }
   lines.push('━━━━━━━━━━━━━━━');
   lines.push(`💰 <b>You pay: ${fmtXcg(q.totalXcg)} XCG</b>`);
