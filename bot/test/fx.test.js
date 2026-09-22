@@ -57,7 +57,7 @@ test('maximum fee cap applies to large orders', () => {
 test('spread, fee and Sentoo are reported as separate line items that sum to the total', () => {
   const q = quoteUsdcPurchase(100, {
     pegRate: 1, spreadPct: 1.5, feeEnabled: true, feePct: 1, feeFlatMinXcg: 0.5,
-    sentooEnabled: true, sentooPct: 1, sentooCapUsd: 1000,
+    sentooEnabled: true, sentooPct: 1, sentooInterbankPct: 0, sentooCapUsd: 1000,
   });
   assert.equal(q.subtotalXcg, 100);
   assert.equal(q.spread.amountXcg, 1.5);
@@ -112,7 +112,7 @@ test('Sentoo pass-through is grossed up so the processor cut is fully covered', 
   // base = 100 (no spread/fee); Sentoo 1% off the top, high cap so uncapped.
   const q = quoteUsdcPurchase(100, {
     pegRate: 1, spreadPct: 0, feeEnabled: false,
-    sentooEnabled: true, sentooPct: 1, sentooCapUsd: 1000,
+    sentooEnabled: true, sentooPct: 1, sentooInterbankPct: 0, sentooCapUsd: 1000,
   });
   // grossed-up pass-through = 100 * 0.01 / 0.99 = 1.0101… -> 1.01
   assert.equal(q.sentoo.amountXcg, 1.01);
@@ -125,7 +125,7 @@ test('Sentoo pass-through is grossed up so the processor cut is fully covered', 
 test('Sentoo cap binds on large orders (flat USD cap converted at the peg)', () => {
   const q = quoteUsdcPurchase(1000, {
     pegRate: 1, spreadPct: 0, feeEnabled: false,
-    sentooEnabled: true, sentooPct: 1, sentooCapUsd: 1.5,
+    sentooEnabled: true, sentooPct: 1, sentooInterbankPct: 0, sentooCapUsd: 1.5,
   });
   // uncapped would be 1000 * 0.01 / 0.99 = 10.10 > 1.50 cap -> flat cap.
   assert.equal(q.sentoo.capXcg, 1.5); // 1.5 USD * pegRate 1
@@ -137,7 +137,7 @@ test('Sentoo cap binds on large orders (flat USD cap converted at the peg)', () 
 test('Sentoo cap in XCG scales with the peg rate', () => {
   const q = quoteUsdcPurchase(1000, {
     pegRate: 1.82, spreadPct: 0, feeEnabled: false,
-    sentooEnabled: true, sentooPct: 1, sentooCapUsd: 1.5,
+    sentooEnabled: true, sentooPct: 1, sentooInterbankPct: 0, sentooCapUsd: 1.5,
   });
   assert.equal(q.sentoo.capXcg, 2.73); // 1.5 * 1.82
   assert.equal(q.sentoo.amountXcg, 2.73); // capped
@@ -159,7 +159,7 @@ test('full stack: subtotal + spread + platform fee + Sentoo reconcile', () => {
   const q = quoteUsdcPurchase(100, {
     pegRate: 1.82, spreadPct: 1.5,
     feeEnabled: true, feePct: 2.5, feeFlatMinXcg: 0.5, feeMaxXcg: 150,
-    sentooEnabled: true, sentooPct: 1, sentooCapUsd: 1.5,
+    sentooEnabled: true, sentooPct: 1, sentooInterbankPct: 0, sentooCapUsd: 1.5,
   });
   assert.equal(q.subtotalXcg, 182);
   assert.equal(q.spread.amountXcg, 2.73); // 182 * 1.5%
@@ -182,4 +182,55 @@ test('loadFxConfig reads Sentoo env with per-field fallbacks', () => {
   assert.equal(cfg.sentooCapUsd, 2);
   assert.equal(cfg.sentooEnabled, DEFAULTS.sentooEnabled); // fallback
   assert.equal(loadFxConfig({ SENTOO_FEE_ENABLED: 'off' }).sentooEnabled, false);
+});
+
+// ── Sentoo inter-bank (0.4% uncapped) fee ──────────────────────────────────
+
+test('inter-bank fee adds an uncapped % on top of the base fee, grossed up', () => {
+  // base 100; Sentoo 1% (uncapped here) + 0.4% inter-bank = 1.4% off the top.
+  const q = quoteUsdcPurchase(100, {
+    pegRate: 1, spreadPct: 0, feeEnabled: false,
+    sentooEnabled: true, sentooPct: 1, sentooInterbankPct: 0.4, sentooCapUsd: 1000,
+  });
+  // grossed up = 100 / (1 - 0.014) - 100 = 1.4199 -> 1.42
+  assert.equal(q.sentoo.amountXcg, 1.42);
+  assert.equal(q.sentoo.interbankPct, 0.4);
+  assert.equal(q.totalXcg, 101.42);
+  // Reconciliation: Sentoo's real cut (1% + 0.4% of total) ≈ what we added.
+  assert.ok(Math.abs(q.totalXcg * 0.014 - q.sentoo.amountXcg) < 0.01);
+});
+
+test('inter-bank fee stays uncapped even after the base 1% hits its cap', () => {
+  // base 1000; 1% caps at $1.50, but 0.4% keeps scaling on the total.
+  const q = quoteUsdcPurchase(1000, {
+    pegRate: 1, spreadPct: 0, feeEnabled: false,
+    sentooEnabled: true, sentooPct: 1, sentooInterbankPct: 0.4, sentooCapUsd: 1.5,
+  });
+  // capped regime: total = (1000 + 1.5) / (1 - 0.004) = 1005.52; sentoo = 5.52
+  assert.equal(q.sentoo.capped, true);
+  assert.equal(q.sentoo.amountXcg, 5.52);
+  assert.equal(q.totalXcg, 1005.52);
+  // Real cut = $1.50 cap + 0.4% of total ≈ what we added.
+  assert.ok(Math.abs(1.5 + q.totalXcg * 0.004 - q.sentoo.amountXcg) < 0.01);
+});
+
+test('inter-bank fee of 0 reduces to the base 1% behavior', () => {
+  const withZero = quoteUsdcPurchase(100, {
+    pegRate: 1, spreadPct: 0, feeEnabled: false,
+    sentooEnabled: true, sentooPct: 1, sentooInterbankPct: 0, sentooCapUsd: 1000,
+  });
+  assert.equal(withZero.sentoo.amountXcg, 1.01); // just the 1% gross-up
+});
+
+test('rejects an inter-bank fee that pushes the combined rate to 100%+', () => {
+  assert.throws(
+    () => quoteUsdcPurchase(100, { sentooPct: 99.9, sentooInterbankPct: 0.1 }),
+    RangeError,
+  );
+  assert.throws(() => quoteUsdcPurchase(100, { sentooInterbankPct: -1 }), RangeError);
+});
+
+test('loadFxConfig reads SENTOO_INTERBANK_PCT with a fallback', () => {
+  assert.equal(loadFxConfig({ SENTOO_INTERBANK_PCT: '0.25' }).sentooInterbankPct, 0.25);
+  assert.equal(loadFxConfig({}).sentooInterbankPct, DEFAULTS.sentooInterbankPct);
 });
