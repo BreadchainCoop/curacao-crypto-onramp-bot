@@ -12,7 +12,7 @@
     "deploy:celo-sepolia": "USE_MOCK_USDC=1 hardhat run scripts/deploy.js --network celo-sepolia",
     "deploy:arc-testnet": "USE_MOCK_USDC=1 hardhat run scripts/deploy.js --network arc-testnet",
     "deploy:arc-testnet-usdc": "USDC_ADDRESS=0x3600000000000000000000000000000000000000 hardhat run scripts/deploy.js --network arc-testnet",
-    "deploy:base": "hardhat run scripts/deploy.js --network base",
+    "deploy:base": "USDC_ADDRESS=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 hardhat run scripts/deploy.js --network base",
     "deploy:polygon": "hardhat run scripts/deploy.js --network polygon",
     "deploy:celo": "hardhat run scripts/deploy.js --network celo",
     "deploy:arc": "USDC_ADDRESS=0x3600000000000000000000000000000000000000 hardhat run scripts/deploy.js --network arc"
