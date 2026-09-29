@@ -14,7 +14,8 @@
     "deploy:arc-testnet-usdc": "USDC_ADDRESS=0x3600000000000000000000000000000000000000 hardhat run scripts/deploy.js --network arc-testnet",
     "deploy:base": "hardhat run scripts/deploy.js --network base",
     "deploy:polygon": "hardhat run scripts/deploy.js --network polygon",
-    "deploy:celo": "hardhat run scripts/deploy.js --network celo"
+    "deploy:celo": "hardhat run scripts/deploy.js --network celo",
+    "deploy:arc": "USDC_ADDRESS=0x3600000000000000000000000000000000000000 hardhat run scripts/deploy.js --network arc"
   },
   "license": "MIT",
   "devDependencies": {

@@ -36,6 +36,22 @@ const CHAINS = {
     explorer: 'https://testnet.arcscan.app',
     nativeSymbol: 'USDC',
   },
+  // ── Mainnets (REAL funds) — escrow/USDC addresses come from env per deploy,
+  // NOT the shared testnet address. Use a fresh, isolated owner key. ──
+  'arc-mainnet': {
+    name: 'Arc',
+    chainId: 5042,
+    rpcUrl: 'https://rpc.mainnet.arc.io',
+    explorer: 'https://explorer.arc.io',
+    nativeSymbol: 'USDC', // Arc pays gas in USDC (no separate gas coin).
+  },
+  'base-mainnet': {
+    name: 'Base',
+    chainId: 8453,
+    rpcUrl: 'https://mainnet.base.org',
+    explorer: 'https://basescan.org',
+    nativeSymbol: 'ETH',
+  },
 };
 
 const DEFAULT_CHAIN = 'polygon-amoy';
