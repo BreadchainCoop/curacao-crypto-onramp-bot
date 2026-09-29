@@ -77,9 +77,11 @@ function activeChain(env = process.env) {
     explorer: base.explorer,
     nativeSymbol: base.nativeSymbol,
     rpcUrl: env[`${envKey(key)}_RPC_URL`] || base.rpcUrl,
-    // Shared across our deployments (same address on every chain).
-    escrowAddress: env.ESCROW_CONTRACT_ADDRESS,
-    usdcAddress: env.USDC_ADDRESS,
+    // Per-chain address overrides (e.g. ARC_MAINNET_ESCROW_ADDRESS) take priority
+    // over the global, so multiple live chains can coexist and switching between
+    // them is a single CHAIN flip. Testnets still share the global fallback.
+    escrowAddress: env[`${envKey(key)}_ESCROW_ADDRESS`] || env.ESCROW_CONTRACT_ADDRESS,
+    usdcAddress: env[`${envKey(key)}_USDC_ADDRESS`] || env.USDC_ADDRESS,
     privateKey: env.ADMIN_WALLET_PRIVATE_KEY,
   };
 }
