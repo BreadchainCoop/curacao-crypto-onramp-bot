@@ -63,6 +63,21 @@ async function main() {
   }
   console.log(`USDC:     ${usdc}`);
 
+  // Safety guard: an externally-supplied USDC (from USDC_ADDRESS or KNOWN_USDC)
+  // must actually be a contract on THIS network before we bind the escrow to it.
+  // A freshly-minted MockUSDC is skipped (we just deployed it). This catches a
+  // stale USDC_ADDRESS shadowing the right one — which would otherwise bind the
+  // escrow to a non-token (or its own) address.
+  if (!mock) {
+    const code = await hre.ethers.provider.getCode(usdc);
+    if (code === '0x' || code === '0x0') {
+      throw new Error(
+        `USDC ${usdc} has no contract code on ${hre.network.name} (chainId ${chainId}). `
+          + 'Refusing to bind the escrow to a non-token address — check USDC_ADDRESS / KNOWN_USDC for this chain.',
+      );
+    }
+  }
+
   // Owner of the escrow. Defaults to the deployer (fine on testnet), but on
   // mainnet set ESCROW_OWNER to the Privy operator address so the gas-only
   // deployer never controls funds (see #34). Must be a valid EIP-55 address.
