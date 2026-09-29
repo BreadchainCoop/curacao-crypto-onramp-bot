@@ -20,6 +20,9 @@ const KNOWN_USDC = {
   // uses 18 decimals — the escrow only touches the 6-decimal ERC-20 view, so no
   // amount-math changes are needed. Only used when USE_MOCK_USDC is NOT set.
   5042002: '0x3600000000000000000000000000000000000000', // Arc testnet (Circle)
+  // ── Mainnets (REAL Circle USDC) ──
+  8453: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // Base mainnet (Circle)
+  5042: '0x3600000000000000000000000000000000000000', // Arc mainnet (Circle predeploy)
 };
 
 // Block explorer "address" base URLs, for the deployment record + verify links.
@@ -31,6 +34,7 @@ const EXPLORER = {
   8453: 'https://basescan.org/address/',
   137: 'https://polygonscan.com/address/',
   42220: 'https://celoscan.io/address/',
+  5042: 'https://explorer.arc.io/address/', // Arc mainnet
 };
 
 // Test USDC to mint into the escrow when we deploy a MockUSDC (human units).
@@ -59,9 +63,24 @@ async function main() {
   }
   console.log(`USDC:     ${usdc}`);
 
-  // Deploy the escrow, owned by the deployer.
+  // Owner of the escrow. Defaults to the deployer (fine on testnet), but on
+  // mainnet set ESCROW_OWNER to the Privy operator address so the gas-only
+  // deployer never controls funds (see #34). Must be a valid EIP-55 address.
+  let owner = deployer.address;
+  if (process.env.ESCROW_OWNER) {
+    owner = hre.ethers.getAddress(process.env.ESCROW_OWNER); // throws if invalid
+  }
+  if (owner === deployer.address && Number(chainId) === 5042) {
+    console.warn(
+      '⚠️  Owner == deployer on Arc mainnet. For real funds, set ESCROW_OWNER to '
+        + 'the Privy operator address so the deployer is gas-only (#34).',
+    );
+  }
+  console.log(`Owner:    ${owner}`);
+
+  // Deploy the escrow, owned by `owner`.
   const Escrow = await hre.ethers.getContractFactory('Escrow');
-  const escrow = await Escrow.deploy(usdc, deployer.address);
+  const escrow = await Escrow.deploy(usdc, owner);
   await escrow.waitForDeployment();
   const escrowAddress = await escrow.getAddress();
   console.log(`Escrow:   ${escrowAddress}`);
@@ -90,6 +109,7 @@ async function main() {
     usdc,
     mockUsdc: Boolean(mock),
     deployer: deployer.address,
+    owner,
     explorer: explorerUrl,
     deployedAt: new Date().toISOString(),
   };
@@ -101,7 +121,7 @@ async function main() {
   console.log(`USDC_ADDRESS=${usdc}`);
   if (explorerUrl) console.log(`\nExplorer: ${explorerUrl}`);
   console.log(
-    `\nVerify (optional): npx hardhat verify --network ${hre.network.name} ${escrowAddress} ${usdc} ${deployer.address}`
+    `\nVerify (optional): npx hardhat verify --network ${hre.network.name} ${escrowAddress} ${usdc} ${owner}`
   );
 }
 

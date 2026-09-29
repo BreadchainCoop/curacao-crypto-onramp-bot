@@ -58,8 +58,13 @@ module.exports = {
       chainId: 42220,
       accounts,
     },
-    // Arc mainnet: add once Circle launches it (~summer 2026) — set ARC_RPC_URL
-    // and ARC_CHAIN_ID, then copy this block with those values.
+    // Arc mainnet (live since 2026-09-16). Gas is paid in USDC; bridge USDC in
+    // via Circle CCTP. USDC ERC-20 predeploy at 0x3600…0000 (6 decimals).
+    arc: {
+      url: process.env.ARC_RPC_URL || 'https://rpc.mainnet.arc.io',
+      chainId: 5042,
+      accounts,
+    },
   },
   etherscan: {
     // Free API keys: basescan.org, polygonscan.com, celoscan.io. Optional —
