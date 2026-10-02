@@ -46,6 +46,15 @@ services:
         sync: false
       - key: PRIVY_OPERATOR_WALLET_ID
         sync: false
+      # Circle Programmable Wallets operator (escrow signer for ESCROW_SIGNER=circle).
+      # Backend host only. Key stays in Circle's MPC/HSM; these authorize requests.
+      # Supports Arc + Base. See backend/services/circleOperator.js.
+      - key: CIRCLE_API_KEY
+        sync: false
+      - key: CIRCLE_ENTITY_SECRET
+        sync: false
+      - key: CIRCLE_WALLET_ID
+        sync: false
       # Operator API shared secret — the bot authenticates admin refund/balance
       # calls with this (#18). The bot holds no chain key.
       - key: OPS_API_SECRET
@@ -55,7 +64,7 @@ services:
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       # ── Non-secret config (override in the dashboard if needed) ──
-      # Escrow release signer: privy (MPC operator wallet) | raw | fake.
+      # Escrow release signer: circle (Circle MPC) | privy (MPC) | raw | fake.
       - key: ESCROW_SIGNER
         value: raw
       - key: SENTOO_BASE_URL
