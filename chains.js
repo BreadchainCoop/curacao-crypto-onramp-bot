@@ -44,6 +44,10 @@ const CHAINS = {
     rpcUrl: 'https://rpc.mainnet.arc.io',
     explorer: 'https://explorer.arc.io',
     nativeSymbol: 'USDC', // Arc pays gas in USDC (no separate gas coin).
+    mainnet: true,
+    // Canonical Circle USDC on Arc (6-dec ERC-20 predeploy; same asset as the
+    // native gas coin). Baked in so a stale global USDC_ADDRESS can't shadow it.
+    knownUsdc: '0x3600000000000000000000000000000000000000',
   },
   'base-mainnet': {
     name: 'Base',
@@ -51,6 +55,8 @@ const CHAINS = {
     rpcUrl: 'https://mainnet.base.org',
     explorer: 'https://basescan.org',
     nativeSymbol: 'ETH',
+    mainnet: true,
+    knownUsdc: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // canonical Base USDC
   },
 };
 
@@ -70,18 +76,34 @@ function activeChain(env = process.env) {
   if (!base) {
     throw new Error(`Unknown CHAIN "${key}". Options: ${Object.keys(CHAINS).join(', ')}`);
   }
+  const perChainEscrow = env[`${envKey(key)}_ESCROW_ADDRESS`];
+  const perChainUsdc = env[`${envKey(key)}_USDC_ADDRESS`];
+
+  // Address resolution differs by network class:
+  //   Testnets: per-chain override OR the shared global (all testnet escrows
+  //             share one address, so the global fallback is convenient).
+  //   Mainnets: per-chain override ONLY for the escrow (real funds — never
+  //             inherit a testnet global), and per-chain override OR the baked
+  //             canonical USDC for the token. This closes the .env-shadow bug
+  //             where a stale global USDC_ADDRESS (testnet MockUSDC) silently
+  //             pointed a mainnet chain at the wrong token.
+  const escrowAddress = base.mainnet
+    ? perChainEscrow
+    : perChainEscrow || env.ESCROW_CONTRACT_ADDRESS;
+  const usdcAddress = base.mainnet
+    ? perChainUsdc || base.knownUsdc
+    : perChainUsdc || env.USDC_ADDRESS;
+
   return {
     key,
     name: base.name,
     chainId: base.chainId,
     explorer: base.explorer,
     nativeSymbol: base.nativeSymbol,
+    mainnet: !!base.mainnet,
     rpcUrl: env[`${envKey(key)}_RPC_URL`] || base.rpcUrl,
-    // Per-chain address overrides (e.g. ARC_MAINNET_ESCROW_ADDRESS) take priority
-    // over the global, so multiple live chains can coexist and switching between
-    // them is a single CHAIN flip. Testnets still share the global fallback.
-    escrowAddress: env[`${envKey(key)}_ESCROW_ADDRESS`] || env.ESCROW_CONTRACT_ADDRESS,
-    usdcAddress: env[`${envKey(key)}_USDC_ADDRESS`] || env.USDC_ADDRESS,
+    escrowAddress,
+    usdcAddress,
     privateKey: env.ADMIN_WALLET_PRIVATE_KEY,
   };
 }

@@ -1,17 +1,19 @@
 #!/usr/bin/env node
-// Smoke test: prove the Privy operator server wallet can sign a real Escrow
-// `release` — i.e. the MPC signer path works end to end, no raw key on the host.
+// Smoke test: prove an MPC operator wallet (Privy or Circle) can sign a real
+// Escrow `release` — i.e. the MPC signer path works end to end, no raw key on
+// the host.
 //
-// It reads the SAME env the backend uses (escrowFromEnv → ESCROW_SIGNER=privy →
-// Privy operator adapter), releases a small amount of USDC from the escrow to a
+// It reads the SAME env the backend uses (escrowFromEnv → ESCROW_SIGNER → the
+// matching MPC adapter), releases a small amount of USDC from the escrow to a
 // recipient, and prints the escrow balance before/after + the tx hash.
 //
 // Requires (in env / .env):
-//   CHAIN=base-sepolia
-//   ESCROW_CONTRACT_ADDRESS=0x05b9aD81666f3a245500FCFc4E0e13017BcFAcD4
-//   USDC_ADDRESS=0xdf4547092471a630d90f1A44521112C9aaC176e6
-//   ESCROW_SIGNER=privy
-//   PRIVY_OPERATOR_APP_ID / _APP_SECRET / _AUTHORIZATION_KEY / _WALLET_ID
+//   CHAIN=base-sepolia | base-mainnet | arc-mainnet | …
+//   ESCROW_CONTRACT_ADDRESS (or the per-chain <CHAIN>_ESCROW_ADDRESS override)
+//   USDC_ADDRESS            (or the per-chain <CHAIN>_USDC_ADDRESS override)
+//   ESCROW_SIGNER=privy     + PRIVY_OPERATOR_APP_ID / _APP_SECRET / _AUTHORIZATION_KEY / _WALLET_ID
+//   — or —
+//   ESCROW_SIGNER=circle    + CIRCLE_API_KEY / CIRCLE_ENTITY_SECRET / CIRCLE_WALLET_ID
 //
 // Optional:
 //   SMOKE_RECIPIENT=0x…   (default: the operator wallet itself)
@@ -37,8 +39,10 @@ async function main() {
     console.error('Set SMOKE_RECIPIENT (or ESCROW_OPERATOR_ADDRESS) to a payout address.');
     process.exit(1);
   }
-  if ((process.env.ESCROW_SIGNER || '').toLowerCase() !== 'privy') {
-    console.error(`ESCROW_SIGNER is "${process.env.ESCROW_SIGNER}" — set it to "privy" for this test.`);
+  const signerMode = (process.env.ESCROW_SIGNER || '').toLowerCase();
+  const MPC_SIGNERS = ['privy', 'circle'];
+  if (!MPC_SIGNERS.includes(signerMode)) {
+    console.error(`ESCROW_SIGNER is "${process.env.ESCROW_SIGNER}" — set it to one of: ${MPC_SIGNERS.join(', ')} (an MPC signer) for this test.`);
     process.exit(1);
   }
 
@@ -51,15 +55,15 @@ async function main() {
   const dec = await usdc.decimals();
   const before = await usdc.balanceOf(chain.escrowAddress);
 
-  console.log('\nPrivy operator release smoke test');
+  console.log(`\n${signerMode} operator release smoke test`);
   console.log('  chain        :', chain.name, `(${chain.chainId})`);
   console.log('  escrow       :', chain.escrowAddress);
   console.log('  recipient    :', recipient);
   console.log('  amount       :', amount, 'USDC');
   console.log('  escrow before:', ethers.formatUnits(before, dec), 'USDC');
 
-  const escrow = escrowFromEnv(); // ESCROW_SIGNER=privy → Privy operator adapter
-  console.log('\n  requesting Privy to sign release…');
+  const escrow = escrowFromEnv(); // ESCROW_SIGNER → the matching MPC adapter
+  console.log(`\n  requesting ${signerMode} to sign release…`);
   const txHash = await escrow.release(recipient, amount);
   console.log('  tx:', txHash);
   console.log('  explorer:', `${chain.explorer}/tx/${txHash}`);
@@ -73,7 +77,7 @@ async function main() {
     console.error('\n✗ Escrow balance did not decrease — release did not settle as expected.');
     process.exit(1);
   }
-  console.log('\n✅ Privy operator signed a real release. MPC signer path works.');
+  console.log(`\n✅ ${signerMode} operator signed a real release. MPC signer path works.`);
 }
 
 main().catch((err) => {
