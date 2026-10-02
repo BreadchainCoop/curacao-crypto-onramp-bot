@@ -19,6 +19,31 @@ Notes:
 
 _Records are generated automatically into `contracts/deployments.json` on each deploy._
 
+## Mainnet (bounded canary)
+
+Small-float canary deployments with MPC/KMS custody (no raw key on any host). The
+escrow owner is the operator **signer wallet**, not the deployer (a gas-only EOA).
+
+| Network | Escrow | USDC | Owner (signer) |
+|---|---|---|---|
+| **Base** (8453) | [`0x05b9aD81666f3a245500FCFc4E0e13017BcFAcD4`](https://basescan.org/address/0x05b9aD81666f3a245500FCFc4E0e13017BcFAcD4) | `0x833589…02913` | Privy operator `0xE629…1eD8` |
+| **Arc** (5042, Circle) | [`0x0970462Cece33d425dBa716cbF4855bb4f44fCF5`](https://explorer.arc.io/address/0x0970462Cece33d425dBa716cbF4855bb4f44fCF5) | `0x3600…0000` | Circle operator `0x04Aa…3565` |
+
+## 🛑 Deprecated — DO NOT FUND
+
+**Never send funds to the escrow at `0xdf4547092471a630d90f1A44521112C9aaC176e6` on ANY chain.**
+
+- **Base mainnet:** a broken escrow that bound its `token` to *itself* (a stale `.env`
+  `USDC_ADDRESS` shadowed the real Base USDC at deploy time) — permanently dead.
+- **Arc mainnet:** an orphaned escrow, superseded by the fresh-address redeploy above
+  (`0x0970…fCF5`).
+- On testnets this string is the `MockUSDC` **token**, not an escrow.
+
+`0xdf45…76e6` is the original deployer's nonce-0 CREATE address, so it's the **same
+string on every chain** — which is exactly why it's dangerous. The mainnet Arc escrow
+was redeployed from a fresh deployer to avoid this collision. (Note: `0x05b9…FacD4` is
+**not** deprecated — it is the live Base mainnet escrow and the testnet escrows.)
+
 ## Optional: Arc testnet with real Circle USDC
 
 The Arc escrow above uses our self-minted `MockUSDC`. Arc is special, though: Circle exposes the **real testnet USDC** as a standard **ERC-20** at the system predeploy `0x3600000000000000000000000000000000000000` (6-decimal ERC-20 view; the native gas token is the same asset at 18 decimals). Because `Escrow.sol` is a generic 6-decimal ERC-20 escrow, it can hold that token **with no contract changes** — the only requirement is deploying an escrow whose immutable `token` is bound to that address.
