@@ -34,5 +34,25 @@
     "deployer": "0xDc9be2a428557469097CE7e7aAeB9C65C280FC44",
     "explorer": "https://sepolia.celoscan.io/address/0x05b9aD81666f3a245500FCFc4E0e13017BcFAcD4",
     "deployedAt": "2026-07-30T13:39:29.161Z"
+  },
+  "base": {
+    "chainId": 8453,
+    "escrow": "0x05b9aD81666f3a245500FCFc4E0e13017BcFAcD4",
+    "usdc": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "mockUsdc": false,
+    "deployer": "0xDc9be2a428557469097CE7e7aAeB9C65C280FC44",
+    "owner": "0xE6297a77F388DBC4Aa3bcFA1a63a72E1E2371eD8",
+    "explorer": "https://basescan.org/address/0x05b9aD81666f3a245500FCFc4E0e13017BcFAcD4",
+    "deployedAt": "2026-09-29T14:56:05.523Z"
+  },
+  "arc": {
+    "chainId": 5042,
+    "escrow": "0x0970462Cece33d425dBa716cbF4855bb4f44fCF5",
+    "usdc": "0x3600000000000000000000000000000000000000",
+    "mockUsdc": false,
+    "deployer": "0x76DC174F243faCB10E2b015cF1De48F3B84f63e9",
+    "owner": "0x04Aa2bd43f63f913D9DBc8460e80d4f5F1853565",
+    "explorer": "https://explorer.arc.io/address/0x0970462Cece33d425dBa716cbF4855bb4f44fCF5",
+    "deployedAt": "2026-10-02T05:04:33.488Z"
   }
 }
