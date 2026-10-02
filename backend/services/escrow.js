@@ -8,6 +8,8 @@
 //   raw   -> ethers Wallet holding ADMIN_WALLET_PRIVATE_KEY (legacy fallback)
 //   privy -> Privy operator server wallet; key material is sharded in Privy's
 //            MPC/TEE and never present on this host (see services/privyOperator.js)
+//   circle-> Circle developer-controlled wallet; key in Circle's MPC/HSM, never
+//            on this host. Supports Arc + Base (see services/circleOperator.js)
 //
 // The public interface (`release(recipient, amountUsdc) -> txHash`) is unchanged,
 // so backend/routes/sentoo.js and bot admin flows keep working across adapters.
@@ -120,8 +122,11 @@ function escrowFromEnv(env = process.env) {
   } else if (mode === 'privy') {
     const { privyOperatorSignerFromEnv } = require('./privyOperator');
     signer = privyOperatorSignerFromEnv(env, chain);
+  } else if (mode === 'circle') {
+    const { circleOperatorSignerFromEnv } = require('./circleOperator');
+    signer = circleOperatorSignerFromEnv(env, chain);
   } else {
-    throw new Error(`Unknown ESCROW_SIGNER "${mode}". Options: fake, raw, privy`);
+    throw new Error(`Unknown ESCROW_SIGNER "${mode}". Options: fake, raw, privy, circle`);
   }
 
   return createEscrowService({ contractAddress: chain.escrowAddress, signer, rpcUrl: chain.rpcUrl });
