@@ -1,9 +1,13 @@
 # Render Blueprint — deploys the /backend webhook server.
 # Docs: https://render.com/docs/blueprint-spec
 #
-# Only the BACKEND runs here. The Telegram bot (/bot) uses long-polling and runs
-# locally for the MVP (Render background workers aren't on the free plan). All
-# values below are set in the Render dashboard, not committed — `sync: false`
+# Two services run here:
+#   1. backend  (type: web)    — the Express webhook/ops server.
+#   2. bot      (type: worker) — the Grammy Telegram bot (long-polling), for 24/7.
+# Background workers require a PAID Render plan (no free worker tier). Run only
+# ONE bot instance at a time — a second long-poller triggers Telegram 409s, so
+# stop any local `node bot/index.js` once the worker is live.
+# All secret values are set in the Render dashboard, not committed — `sync: false`
 # means "prompt me in the dashboard"; the few non-secret defaults are inline.
 
 services:
@@ -78,3 +82,51 @@ services:
       - key: EXPIRY_SWEEP_MS
         value: "60000"
       # PORT is provided by Render automatically (index.js reads process.env.PORT).
+
+  # ── Telegram bot (long-polling worker) — runs 24/7 ──
+  # Requires a paid plan (no free worker tier). Only ONE instance may run at once.
+  - type: worker
+    name: curacao-onramp-bot
+    runtime: node
+    rootDir: bot
+    plan: starter
+    buildCommand: npm install
+    startCommand: node index.js
+    autoDeploy: true # redeploys on every push to the connected branch (main)
+    envVars:
+      # ── Secrets (set in the Render dashboard) ──
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SENTOO_API_KEY
+        sync: false
+      - key: SENTOO_MERCHANT_ID
+        sync: false
+      # Privy USERS app (buyer wallet creation). Bot host only — NEVER the
+      # operator credentials (those live on the backend only, #22).
+      - key: PRIVY_APP_ID
+        sync: false
+      - key: PRIVY_APP_SECRET
+        sync: false
+      # Admin ops (optional — only powers /refund and escrow balance commands).
+      # The bot signs nothing (#18); it calls the backend ops API with this shared
+      # secret. OPS_API_SECRET must MATCH the backend service's OPS_API_SECRET.
+      - key: ADMIN_TELEGRAM_ID
+        sync: false
+      - key: OPS_API_URL
+        sync: false
+      - key: OPS_API_SECRET
+        sync: false
+      # ── Non-secret config (override in the dashboard if needed) ──
+      # Active chain for receipts/explorer links. base-sepolia for Base demos.
+      - key: CHAIN
+        value: base-sepolia
+      - key: ESCROW_CONTRACT_ADDRESS
+        sync: false
+      - key: SENTOO_BASE_URL
+        value: https://api.sentoo.io
+      - key: KYC_REQUIRED
+        value: "false"
