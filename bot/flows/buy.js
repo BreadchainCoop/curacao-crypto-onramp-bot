@@ -88,12 +88,17 @@ async function confirm(ctx, deps = {}) {
         { parse_mode: 'HTML', reply_markup: kb.pay(paymentUrl) }
       );
     } catch (err) {
-      // Surface the real cause (Supabase insert / Sentoo createPayment) instead
-      // of swallowing it — otherwise a failed link is undiagnosable in the logs.
+      // Surface the real cause (liquidity / Supabase insert / Sentoo createPayment)
+      // instead of swallowing it — otherwise a failed link is undiagnosable.
       console.error('createForOrder failed:', err && err.stack ? err.stack : err);
-      await ctx.reply('Sorry — we could not create a payment link right now. Please try again.', {
-        reply_markup: kb.buy(),
-      });
+      // Liquidity pre-check refused BEFORE any order/link — be explicit that no
+      // payment was taken, so the user retries instead of worrying about a charge.
+      const isLiquidity = err && (err.code === 'ESCROW_INSUFFICIENT' || err.code === 'ESCROW_CHECK_FAILED');
+      const text = isLiquidity
+        ? '⚠️ This amount is temporarily unavailable and <b>no payment was taken</b>. ' +
+          'Please try a smaller amount or try again shortly.'
+        : 'Sorry — we could not create a payment link right now. Please try again.';
+      await ctx.reply(text, { parse_mode: 'HTML', reply_markup: kb.buy() });
     }
     return;
   }

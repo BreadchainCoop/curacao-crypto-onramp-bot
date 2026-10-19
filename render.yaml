@@ -130,3 +130,8 @@ services:
         value: https://api.sentoo.io
       - key: KYC_REQUIRED
         value: "false"
+      # Pooled-escrow liquidity reserve: before minting a Sentoo link the bot
+      # checks balance - (outstanding orders) - buffer >= order amount, and
+      # refuses (no charge) otherwise. This is the safety margin kept unreserved.
+      - key: ESCROW_RESERVE_BUFFER_USDC
+        value: "0"
