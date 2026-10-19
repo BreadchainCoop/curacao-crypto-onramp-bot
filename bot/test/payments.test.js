@@ -70,3 +70,68 @@ test('the bot Sentoo client posts amount in minor units with the order reference
   assert.equal(captured.init.body.get('sentoo_reference'), null); // no such field
   assert.deepEqual(res, { transactionId: 'tx_1', paymentUrl: 'https://pay/1', qrCode: 'q' });
 });
+
+// ── Escrow liquidity pre-check (fail-closed, reservation + buffer) ──
+
+function liquidityHarness({ balance, outstanding, buffer = 0, failRead = false }) {
+  const calls = { created: false, sentoo: false };
+  const repo = {
+    upsertUser: async () => { calls.created = true; return 'user-1'; },
+    createOrder: async () => { calls.created = true; return 'order-1'; },
+    setSentooTransaction: async () => {},
+    sumOutstandingUsdc: async () => outstanding,
+  };
+  const sentoo = { createPayment: async () => { calls.sentoo = true; return { transactionId: 'stx', paymentUrl: 'https://pay/x' }; } };
+  const getEscrowBalanceUsdc = async () => {
+    if (failRead) throw new Error('rpc down');
+    return balance;
+  };
+  const svc = createPaymentsService({ repo, sentoo, getEscrowBalanceUsdc, reserveBufferUsdc: buffer, logger: silent() });
+  return { svc, calls };
+}
+
+const order = (usdc = 100) => ({ usdcAmount: usdc, amountXcg: usdc * 1.89, walletAddress: '0xW', telegramId: 1 });
+
+test('liquidity: proceeds when balance covers order after reserve + buffer', async () => {
+  const { svc, calls } = liquidityHarness({ balance: 1000, outstanding: 850, buffer: 10 });
+  // available = 1000 - 850 - 10 = 140 >= 100
+  const res = await svc.createForOrder(order(100));
+  assert.equal(res.orderId, 'order-1');
+  assert.ok(calls.created && calls.sentoo);
+});
+
+test('liquidity: refuses (ESCROW_INSUFFICIENT) and creates NO order/link when reserve leaves too little', async () => {
+  const { svc, calls } = liquidityHarness({ balance: 1000, outstanding: 950, buffer: 10 });
+  // available = 1000 - 950 - 10 = 40 < 100
+  await assert.rejects(() => svc.createForOrder(order(100)), (e) => e.code === 'ESCROW_INSUFFICIENT');
+  assert.equal(calls.created, false, 'no order row created');
+  assert.equal(calls.sentoo, false, 'no Sentoo link minted');
+});
+
+test('liquidity: buffer alone can block an otherwise-coverable order', async () => {
+  const { svc } = liquidityHarness({ balance: 100, outstanding: 0, buffer: 25 });
+  // available = 100 - 0 - 25 = 75 < 100
+  await assert.rejects(() => svc.createForOrder(order(100)), (e) => e.code === 'ESCROW_INSUFFICIENT');
+});
+
+test('liquidity: FAILS CLOSED (ESCROW_CHECK_FAILED) when the balance read throws — no order taken', async () => {
+  const { svc, calls } = liquidityHarness({ balance: 1000, outstanding: 0, failRead: true });
+  await assert.rejects(() => svc.createForOrder(order(10)), (e) => e.code === 'ESCROW_CHECK_FAILED');
+  assert.equal(calls.created, false);
+  assert.equal(calls.sentoo, false);
+});
+
+test('liquidity: pre-check is skipped (legacy) when no balance reader is injected', async () => {
+  const calls = { created: false };
+  const repo = {
+    upsertUser: async () => { calls.created = true; return 'u'; },
+    createOrder: async () => 'o',
+    setSentooTransaction: async () => {},
+    sumOutstandingUsdc: async () => { throw new Error('should not be called'); },
+  };
+  const sentoo = { createPayment: async () => ({ transactionId: 't', paymentUrl: 'https://p' }) };
+  const svc = createPaymentsService({ repo, sentoo, logger: silent() });
+  const res = await svc.createForOrder(order(100));
+  assert.equal(res.orderId, 'o');
+  assert.ok(calls.created);
+});
