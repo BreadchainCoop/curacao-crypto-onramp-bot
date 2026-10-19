@@ -18,6 +18,13 @@ function createApp(deps = {}) {
   app.set('trust proxy', 1);
   app.get('/health', (_req, res) => res.json({ ok: true }));
 
+  // Post-payment landing. Sentoo appends a status segment to the configured
+  // return URL (e.g. .../return/success), which breaks a bare Telegram deep link
+  // (https://t.me/<bot>/success is an invalid username). So Sentoo points here
+  // and we bounce the buyer back into the Telegram bot regardless of the suffix.
+  const telegramReturnUrl = deps.telegramReturnUrl || 'https://t.me/Cura_ramp_bot';
+  app.get(/^\/return(?:\/.*)?$/, (_req, res) => res.redirect(302, telegramReturnUrl));
+
   // Rate-limit the webhook endpoints to blunt abuse/DoS (#13). Generous by
   // default so legitimate provider bursts pass; configurable for tests.
   const limiter = rateLimit({
@@ -62,6 +69,7 @@ function startFromEnv() {
     escrow: escrowFromEnv(),
     notifier: notifierFromEnv(),
     users: usersFromEnv(),
+    telegramReturnUrl: process.env.TELEGRAM_RETURN_URL || 'https://t.me/Cura_ramp_bot',
     webhookToken: process.env.SENTOO_WEBHOOK_SECRET || null,
     kycWebhookSecret: process.env.SYNAPS_WEBHOOK_SECRET || null,
     opsSecret: process.env.OPS_API_SECRET || null,
