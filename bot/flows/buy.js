@@ -88,6 +88,9 @@ async function confirm(ctx, deps = {}) {
         { parse_mode: 'HTML', reply_markup: kb.pay(paymentUrl) }
       );
     } catch (err) {
+      // Surface the real cause (Supabase insert / Sentoo createPayment) instead
+      // of swallowing it — otherwise a failed link is undiagnosable in the logs.
+      console.error('createForOrder failed:', err && err.stack ? err.stack : err);
       await ctx.reply('Sorry — we could not create a payment link right now. Please try again.', {
         reply_markup: kb.buy(),
       });
