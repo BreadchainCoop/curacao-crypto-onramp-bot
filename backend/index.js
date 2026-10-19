@@ -21,9 +21,29 @@ function createApp(deps = {}) {
   // Post-payment landing. Sentoo appends a status segment to the configured
   // return URL (e.g. .../return/success), which breaks a bare Telegram deep link
   // (https://t.me/<bot>/success is an invalid username). So Sentoo points here
-  // and we bounce the buyer back into the Telegram bot regardless of the suffix.
-  const telegramReturnUrl = deps.telegramReturnUrl || 'https://t.me/Cura_ramp_bot';
-  app.get(/^\/return(?:\/.*)?$/, (_req, res) => res.redirect(302, telegramReturnUrl));
+  // and we send the buyer back into the Telegram bot regardless of the suffix.
+  //
+  // A plain 302 to https://t.me/<bot> only reaches Telegram's WEB landing page
+  // ("Open in Telegram"), not the chat. So we serve a tiny page that opens the
+  // app directly via the tg:// deep link, with the https link as a tap fallback.
+  const telegramHttpsUrl = deps.telegramReturnUrl || 'https://t.me/Cura_ramp_bot';
+  const botUsername = deps.telegramBotUsername || telegramHttpsUrl.split('/').filter(Boolean).pop() || 'Cura_ramp_bot';
+  const tgDeepLink = `tg://resolve?domain=${botUsername}`;
+  app.get(/^\/return(?:\/.*)?$/, (_req, res) => {
+    res.set('Content-Type', 'text/html; charset=utf-8').send(
+      `<!doctype html><html lang="en"><head><meta charset="utf-8">` +
+        `<meta name="viewport" content="width=device-width,initial-scale=1">` +
+        `<title>Returning to Telegram…</title>` +
+        `<script>location.replace(${JSON.stringify(tgDeepLink)});` +
+        `setTimeout(function(){location.href=${JSON.stringify(telegramHttpsUrl)};},1200);</script>` +
+        `<meta http-equiv="refresh" content="1;url=${telegramHttpsUrl}">` +
+        `</head><body style="font-family:system-ui,sans-serif;text-align:center;padding:48px 20px">` +
+        `<p style="font-size:18px">Opening Telegram…</p>` +
+        `<p><a href="${telegramHttpsUrl}" style="display:inline-block;padding:14px 22px;` +
+        `background:#229ED9;color:#fff;border-radius:10px;text-decoration:none;font-size:16px">` +
+        `Return to the bot</a></p></body></html>`
+    );
+  });
 
   // Rate-limit the webhook endpoints to blunt abuse/DoS (#13). Generous by
   // default so legitimate provider bursts pass; configurable for tests.
@@ -70,6 +90,7 @@ function startFromEnv() {
     notifier: notifierFromEnv(),
     users: usersFromEnv(),
     telegramReturnUrl: process.env.TELEGRAM_RETURN_URL || 'https://t.me/Cura_ramp_bot',
+    telegramBotUsername: process.env.TELEGRAM_BOT_USERNAME || null,
     webhookToken: process.env.SENTOO_WEBHOOK_SECRET || null,
     kycWebhookSecret: process.env.SYNAPS_WEBHOOK_SECRET || null,
     opsSecret: process.env.OPS_API_SECRET || null,
