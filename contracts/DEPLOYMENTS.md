@@ -15,7 +15,7 @@ Notes:
 - The escrow deploys to the **same address on every chain** (`0x05b9…FacD4`) — the deployer's first deployment on each network, so the CREATE address is identical.
 - Testnets use a self-minted `MockUSDC` (`0xdf45…76e6`) so each deployment is immediately demonstrable without depending on external faucet liquidity.
 - **Source verification** on each explorer is pending a (free) explorer API key — the contracts are live and their bytecode is on-chain; verified source is a fast follow.
-- **Mainnet** on **Stellar** (Soroban escrow) is the grant-funded milestone, gated on an independent audit + a multisig/KMS owner (rather than the current testnet key).
+- **Mainnet** milestone is now **Stellar** (Soroban escrow), grant-funded and gated on an independent audit + a multisig/KMS owner. EVM mainnet (Base, Polygon, Celo) remains available as a fast follow — the chains stay supported, Stellar is the new primary target.
 
 _Records are generated automatically into `contracts/deployments.json` on each deploy._
 

@@ -1,6 +1,6 @@
 # Curaçao Crypto On-Ramp Bot
 
-A Telegram bot that lets users in Curaçao, Aruba, and Bonaire buy USDC stablecoins using local bank transfers via [Sentoo](https://sentoo.io). Operated by **Stigmergy Two B.V.** Target chain: **Stellar** (Soroban).
+A Telegram bot that lets users in Curaçao, Aruba, and Bonaire buy USDC stablecoins using local bank transfers via [Sentoo](https://sentoo.io). Operated by **Stigmergy Two B.V.** Multi-chain (EVM), with the escrow now migrating to **Stellar** (Soroban).
 
 ## How it works
 
@@ -19,11 +19,11 @@ A Telegram bot that lets users in Curaçao, Aruba, and Bonaire buy USDC stableco
 |---|---|
 | Bot | Node.js + Grammy (Telegram Bot API) |
 | Backend / Webhooks | Express.js |
-| Smart contract | Soroban (Rust) on **Stellar** (escrow) |
+| Smart contract | Solidity (Hardhat) on EVM testnets; escrow migrating to Soroban (Rust) on **Stellar** |
 | Wallet creation | Privy embedded wallets |
 | KYC | **Sumsub** |
 | Payment rail | Sentoo REST API (sandbox) |
-| RPC | Soroban RPC (Stellar) |
+| RPC | Alchemy (EVM) · Soroban RPC (Stellar) |
 | Database | Supabase (Postgres) |
 | Hosting | Render (backend) — see [docs/DEPLOY.md](docs/DEPLOY.md) |
 
@@ -174,7 +174,7 @@ cd contracts && npm run coverage
 
 ## Status
 
-> MVP in development. Target chain: **Stellar** (Soroban escrow). Currently on testnet and Sentoo sandbox.
+> MVP in development. Live on EVM testnets (Base Sepolia, Arc, Celo, Polygon); the escrow is now migrating to **Stellar** (Soroban). Sentoo sandbox.
 
 ## License
 
