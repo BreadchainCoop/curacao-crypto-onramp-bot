@@ -1,11 +1,11 @@
 # Curaçao Crypto On-Ramp Bot
 
-A Telegram bot that lets users in Curaçao, Aruba, and Bonaire buy USDC stablecoins using local bank transfers via [Sentoo](https://sentoo.io). Built by [Bread Cooperative DAO LLC](https://breadcooperative.com).
+A Telegram bot that lets users in Curaçao, Aruba, and Bonaire buy USDC stablecoins using local bank transfers via [Sentoo](https://sentoo.io). Operated by **Stigmergy Two B.V.** Target chain: **Stellar** (Soroban).
 
 ## How it works
 
 1. User starts the bot on Telegram
-2. KYC verification (Synaps sandbox)
+2. KYC verification (Sumsub)
 3. User provides or receives a wallet address (via Privy if none exists)
 4. Bot generates a Sentoo payment link in XCG/ANG
 5. User pays via their local banking app
@@ -19,11 +19,11 @@ A Telegram bot that lets users in Curaçao, Aruba, and Bonaire buy USDC stableco
 |---|---|
 | Bot | Node.js + Grammy (Telegram Bot API) |
 | Backend / Webhooks | Express.js |
-| Smart contract | Solidity (Hardhat) — deployed on Base Sepolia testnet |
+| Smart contract | Soroban (Rust) on **Stellar** (escrow) |
 | Wallet creation | Privy embedded wallets |
-| KYC | Synaps |
+| KYC | **Sumsub** |
 | Payment rail | Sentoo REST API (sandbox) |
-| RPC | Alchemy (Base Sepolia) |
+| RPC | Soroban RPC (Stellar) |
 | Database | Supabase (Postgres) |
 | Hosting | Render (backend) — see [docs/DEPLOY.md](docs/DEPLOY.md) |
 
@@ -174,8 +174,8 @@ cd contracts && npm run coverage
 
 ## Status
 
-> MVP in development. Currently running on testnet (Base Sepolia) and Sentoo sandbox.
+> MVP in development. Target chain: **Stellar** (Soroban escrow). Currently on testnet and Sentoo sandbox.
 
 ## License
 
-MIT — Bread Cooperative DAO LLC
+MIT — Stigmergy Two B.V.
