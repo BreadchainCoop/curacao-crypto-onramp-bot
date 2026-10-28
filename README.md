@@ -25,7 +25,7 @@ A Telegram bot that lets users in Curaçao, Aruba, and Bonaire buy USDC stableco
 | Payment rail | Sentoo REST API (sandbox) |
 | RPC | Alchemy (Base Sepolia) |
 | Database | Supabase (Postgres) |
-| Hosting | Render (backend) — see [docs/DEPLOY.md](docs/DEPLOY.md) |
+| Hosting | Render (backend) — see [docs/DEPLOY.md](docs/DEPLOY.md); Netlify (landing page) |
 
 ## Monorepo structure
 
@@ -59,9 +59,12 @@ curacao-crypto-onramp-bot/
 │   ├── hardhat.config.js
 │   └── scripts/
 │       └── deploy.js
+├── /landing          ← KambioX landing page (static, hosted on Netlify)
+│   └── index.html
 ├── /supabase         ← Database schema (migrations)
 │   └── migrations/
 │       └── 0001_init.sql
+├── netlify.toml      ← Netlify config for /landing
 ├── commitlint.config.js
 ├── package.json      ← root tooling (commitlint)
 ├── AGENTS.md         ← Canonical contributor/agent guidance
