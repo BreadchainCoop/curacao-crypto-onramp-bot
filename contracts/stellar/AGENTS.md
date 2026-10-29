@@ -1,6 +1,6 @@
 # AGENTS.md — contracts/stellar
 
-The Soroban escrow for the Stellar rebuild of the ramp: `escrow/` is the pooled-custody USDC escrow (Rust, Soroban), with its tests. Applies inside `contracts/stellar`; the root `AGENTS.md` still applies. This is a Cargo workspace outside the pnpm workspace, so use `make`/`cargo` here, not turbo. Posture is **testnet + provider sandbox only**. Runbook: `docs/stellar/TESTNET.md`.
+The Soroban escrow for the Stellar rebuild of the ramp: `escrow/` is KambioEscrow, the pooled-custody USDC escrow (Rust, Soroban), with its tests. Applies inside `contracts/stellar`; the root `AGENTS.md` still applies. This is a Cargo workspace outside the pnpm workspace, so use `make`/`cargo` here, not turbo. Posture is **testnet + provider sandbox only**. Runbook: `docs/stellar/TESTNET.md`.
 
 ## Commands
 

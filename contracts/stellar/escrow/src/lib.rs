@@ -1,5 +1,5 @@
 #![no_std]
-//! Pooled-custody USDC escrow: deposit, owner-only release and withdraw.
+//! KambioEscrow: pooled-custody USDC escrow with deposit, owner-only release and withdraw.
 
 use soroban_sdk::{
     contract, contracterror, contractevent, contractimpl, contractmeta, token, Address, Env,
@@ -10,7 +10,7 @@ mod storage;
 // Labels shown by explorers; not a source verification. The release workflow
 // injects `source_repo` (github:<owner>/<repo>), which StellarExpert uses to link
 // the attested wasm to its source, so it isn't embedded here (docs/stellar/TESTNET.md §6).
-contractmeta!(key = "name", val = "stellar-onramp-escrow");
+contractmeta!(key = "name", val = "KambioEscrow");
 contractmeta!(
     key = "repo",
     val = "https://github.com/BreadchainCoop/curacao-crypto-onramp-bot"
