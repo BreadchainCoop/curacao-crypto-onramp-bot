@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { activeChain } = require('../../chains');
+const { activeChain } = require('@kambiox/chains');
 
 const ARC_USDC = '0x3600000000000000000000000000000000000000';
 const BASE_USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';

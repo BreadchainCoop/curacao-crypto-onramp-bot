@@ -21,8 +21,7 @@
 'use strict';
 
 const path = require('path');
-// Reuse ethers from the backend workspace (contracts may not have it standalone).
-const ethers = require(path.join(__dirname, '../../backend/node_modules/ethers'));
+const ethers = require('ethers');
 
 const ABI = [
   'function owner() view returns (address)',

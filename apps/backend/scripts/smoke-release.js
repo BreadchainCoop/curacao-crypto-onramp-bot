@@ -26,9 +26,9 @@
 'use strict';
 
 const path = require('path');
-const ethers = require(path.join(__dirname, '../node_modules/ethers'));
+const ethers = require('ethers');
 const { escrowFromEnv } = require('../services/escrow');
-const { activeChain } = require('../../chains');
+const { activeChain } = require('@kambiox/chains');
 
 async function main() {
   const chain = activeChain();

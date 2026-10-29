@@ -142,7 +142,7 @@ function createPaymentsService({ repo, sentoo, getEscrowBalanceUsdc, reserveBuff
 
 function paymentsFromEnv(env = process.env) {
   const { createClient } = require('@supabase/supabase-js');
-  const { activeChain } = require('../../chains');
+  const { activeChain } = require('@kambiox/chains');
   const { createEscrowBalanceReader } = require('./escrowBalance');
 
   const client = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);

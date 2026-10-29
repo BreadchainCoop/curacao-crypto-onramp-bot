@@ -1,7 +1,7 @@
-# Netlify serves the static KambioX landing page in /landing.
+# Netlify serves the static KambioX landing page in /apps/landing.
 # No build step: the page is a single self-contained index.html.
 [build]
-  base = "landing"
+  base = "apps/landing"
   publish = "."
   command = ""
 

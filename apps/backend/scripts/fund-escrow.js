@@ -27,8 +27,8 @@
 'use strict';
 
 const path = require('path');
-const ethers = require(path.join(__dirname, '../node_modules/ethers'));
-const { activeChain } = require('../../chains');
+const ethers = require('ethers');
+const { activeChain } = require('@kambiox/chains');
 const { circleOperatorSignerFromEnv } = require('../services/circleOperator');
 
 const USDC_DECIMALS = 6;

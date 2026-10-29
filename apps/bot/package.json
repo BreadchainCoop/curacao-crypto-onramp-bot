@@ -1,8 +1,8 @@
 {
-  "name": "curacao-onramp-backend",
+  "name": "@kambiox/bot",
   "version": "0.1.0",
   "private": true,
-  "description": "Express webhook server for the Curaçao crypto on-ramp",
+  "description": "Telegram bot for the Curaçao crypto on-ramp (Grammy)",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
@@ -11,12 +11,10 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@circle-fin/developer-controlled-wallets": "^10.8.1",
-    "@privy-io/node": "^0.29.0",
+    "@kambiox/chains": "workspace:*",
     "@supabase/supabase-js": "^2.45.0",
     "dotenv": "^16.4.5",
     "ethers": "^6.13.0",
-    "express": "^4.19.2",
-    "express-rate-limit": "^7.4.0"
+    "grammy": "^1.30.0"
   }
 }

@@ -1,7 +1,7 @@
 // Telegram bot entry point
 // Uses Grammy: https://grammy.dev
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
 const { Bot, session } = require('grammy');
 const { initialSession, resolveBuyGate } = require('./state/session');
@@ -246,7 +246,7 @@ function startFromEnv() {
   const adminId = process.env.ADMIN_TELEGRAM_ID;
   if (adminId && process.env.OPS_API_URL && process.env.OPS_API_SECRET) {
     const { escrowOperatorFromEnv, ordersAdminFromEnv } = require('./services/operator');
-    const { activeChain } = require('../chains');
+    const { activeChain } = require('@kambiox/chains');
     admin = { adminId, escrow: escrowOperatorFromEnv(), orders: ordersAdminFromEnv(), chain: activeChain() };
   } else if (adminId) {
     console.warn('OPS_API_URL/OPS_API_SECRET not set — operator commands disabled (bot signs nothing).');

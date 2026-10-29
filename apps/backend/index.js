@@ -1,6 +1,6 @@
 // Express webhook server entry point
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
 const express = require('express');
 const rateLimit = require('express-rate-limit');
@@ -81,7 +81,7 @@ function startFromEnv() {
   const { escrowFromEnv } = require('./services/escrow');
   const { notifierFromEnv } = require('./services/notifier');
   const { usersFromEnv } = require('./services/users');
-  const { activeChain } = require('../chains');
+  const { activeChain } = require('@kambiox/chains');
 
   const deps = {
     sentoo: sentooFromEnv(),

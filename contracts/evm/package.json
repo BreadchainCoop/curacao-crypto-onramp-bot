@@ -1,12 +1,12 @@
 {
-  "name": "curacao-onramp-contracts",
+  "name": "@kambiox/contracts-evm",
   "version": "0.1.0",
   "private": true,
   "description": "Solidity escrow contract for the Curaçao crypto on-ramp (Hardhat)",
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "coverage": "hardhat coverage && node scripts/check-coverage.js",
+    "test:coverage": "hardhat coverage && node scripts/check-coverage.js",
     "deploy:amoy": "USE_MOCK_USDC=1 hardhat run scripts/deploy.js --network polygon-amoy",
     "deploy:base-sepolia": "USE_MOCK_USDC=1 hardhat run scripts/deploy.js --network base-sepolia",
     "deploy:celo-sepolia": "USE_MOCK_USDC=1 hardhat run scripts/deploy.js --network celo-sepolia",
@@ -20,7 +20,9 @@
   "license": "MIT",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "chai": "4.5.0",
     "dotenv": "^16.4.5",
+    "ethers": "6.17.0",
     "hardhat": "^2.22.10"
   },
   "dependencies": {

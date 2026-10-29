@@ -109,7 +109,7 @@ function createFakeSigner() {
  * unset it defaults to `raw` if an admin key is present, else `privy`.
  */
 function escrowFromEnv(env = process.env) {
-  const { activeChain } = require('../../chains');
+  const { activeChain } = require('@kambiox/chains');
   const chain = activeChain(env);
 
   const mode = (env.ESCROW_SIGNER || (chain.privateKey ? 'raw' : 'privy')).toLowerCase();

@@ -92,7 +92,7 @@ function buildPrivyClient({ appId, appSecret }) {
 
 /** Build the operator signer from env + the active chain (for chainId/rpc). */
 function privyOperatorSignerFromEnv(env = process.env, chain) {
-  const { activeChain } = require('../../chains');
+  const { activeChain } = require('@kambiox/chains');
   const c = chain || activeChain(env);
   return createPrivyOperatorSigner({
     appId: env.PRIVY_OPERATOR_APP_ID,

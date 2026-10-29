@@ -5,7 +5,7 @@
 // never collide. The single ADMIN_WALLET_PRIVATE_KEY deploys on every chain —
 // on testnets it just needs gas from that chain's faucet.
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 require('@nomicfoundation/hardhat-toolbox');
 
 const accounts = process.env.ADMIN_WALLET_PRIVATE_KEY

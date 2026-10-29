@@ -1,0 +1,9 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "contracts/evm"
+
+# Native addons with a pure-JS fallback; no postinstall needed.
+ignoredBuiltDependencies:
+  - keccak
+  - secp256k1

@@ -5,20 +5,21 @@
 
 # Node
 node_modules/
+.turbo/
 npm-debug.log*
 yarn-error.log*
 
 # Hardhat
-contracts/artifacts/
-contracts/cache/
-contracts/ignition/deployments/
+contracts/evm/artifacts/
+contracts/evm/cache/
+contracts/evm/ignition/deployments/
 
 # solidity-coverage
-contracts/coverage/
-contracts/coverage.json
-contracts/.coverage_artifacts/
-contracts/.coverage_cache/
-contracts/.coverage_contracts/
+contracts/evm/coverage/
+contracts/evm/coverage.json
+contracts/evm/.coverage_artifacts/
+contracts/evm/.coverage_cache/
+contracts/evm/.coverage_contracts/evm/
 
 # Build output
 dist/
@@ -39,3 +40,6 @@ Thumbs.db
 *.log
 logs/
 .env.bak*
+
+# Claude Code — machine-local rules/symlinks
+**/.claude/*
