@@ -31,6 +31,9 @@ review remain outstanding. Do not describe those controls as implemented.
   deployment scripts.
 - `supabase/`: ordered Postgres migrations and the consolidated setup script.
 - `chains.js`: shared chain registry used by the bot and backend.
+- `stellar/`: git submodule tracking `main` of the Stellar/Soroban rebuild (escrow
+  contract), with its own CI and AGENTS.md. Change it in that repo; once its PRs
+  merge, bump the pin here with `git submodule update --remote stellar`.
 - `render.yaml` and `docs/DEPLOY.md`: backend hosting and provider webhook setup.
 - `SECURITY.md`: current safeguards and pre-mainnet gates.
 - `docs/plans/` and `docs/solutions/`: accepted plans and compounded learnings
