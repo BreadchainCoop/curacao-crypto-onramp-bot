@@ -9,49 +9,40 @@ and prove a release. Everything here is testnet — no real funds.
 
 ## Live deployment (testnet)
 
-Deployed and proven end-to-end on **2026-10-21** (deposit → owner-only release),
-bound to real Circle testnet USDC.
-
-> **Pre-review contract.** This deployment runs `v0.1.0` of the old
-> `stellar-stablecoin-onramp-bot` repo (commit `0a88113` there): SDK 22, a
-> public `init`, `refund`. Its release and attestation live in that repo. The
-> reviewed contract in `contracts/stellar` (constructor, `withdraw`, SDK 29)
-> has a different interface and needs a new release and deploy (§6); these ids
-> won't accept its calls.
-
-**Source-verified escrow** (StellarExpert `status: verified`, from the attested
-`v0.1.0` release build):
+KambioEscrow v0.2.0, deployed on **2026-10-30** from the attested release build and proven
+end to end (deposit → owner-only release), bound to real Circle testnet USDC.
 
 | Item | Value |
 | --- | --- |
-| Escrow contract | `CAKKY5WKDXZRQVGD2UR72AV4FMZOS7EW3UGRET4CMQSX3QMWQTNEALJT` |
-| Wasm hash (sha256) | `4131294462173056ac60795fbdad1c6cc566de1484382b2d1ab816d6038108ba` |
-| Verified at commit | `0a88113` (tag `v0.1.0`), path `contracts`, package `escrow` |
-| Attested release | `v0.1.0_contracts_escrow_cli28.1.0` (stellar-expert/soroban-build-workflow) |
-| Owner / operator | `GBOMEGI2WUGLCYDAWMWTGKDQ3OKSKT2PMPFKEO4AE5LCG4RZT42J3QRW` |
+| Escrow contract | `CCA2WYNWADCEH5ZZ36D7II5OCVZL3HTMIKDTOC74HEVHHJZONNT2AXR5` |
+| Wasm hash (sha256) | `d0516bf3b5867a563ce1f12f5a33fee812fbd3976eb95baaa2f07b92058d856f` (on-chain, confirmed with `stellar contract fetch`, equals the release asset) |
+| Built from | commit `fdc49c2`, git tag `stellar-escrow-v0.2.0`, path `contracts/stellar`, package `escrow` |
+| Attested release | `stellar-escrow-v0.2.0_contracts_stellar_escrow_pkg0.2.0_cli28.1.0`, asset `escrow_v0.2.0.wasm`; `gh attestation verify` passes with `--signer-repo stellar-expert/soroban-build-workflow` |
+| Contract meta | `name: KambioEscrow`, `source_repo: github:BreadchainCoop/curacao-crypto-onramp-bot`, soroban-sdk 29.0.1, built with stellar-cli 28.1.0 |
+| Owner / operator | `GBSU6Q7LPCCLENKZZYNVM5C6A55MECOPBHUE6IGPC5WWLTJOJPM2M5GX` |
 | USDC issuer (Circle testnet) | `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5` |
 | USDC token (SAC) | `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` |
-| CLI | `stellar-cli 28.1.0` (testnet runs Protocol 23; a P22 CLI can't parse the response) |
+| StellarExpert source validation | `status: unverified` at the time of writing (StellarExpert matches the on-chain wasm hash against the GitHub attestation asynchronously; re-check the explorer page) ([explorer page](https://stellar.expert/explorer/testnet/contract/CCA2WYNWADCEH5ZZ36D7II5OCVZL3HTMIKDTOC74HEVHHJZONNT2AXR5)) |
+| Deploy CLI | `stellar-cli 26.1.0` against a protocol 29 testnet |
 
-The on-chain wasm hash == the attested release wasm hash == `4131…` (confirmed by
-`stellar contract fetch`), and the GitHub build attestation verifies against
-`--signer-repo stellar-expert/soroban-build-workflow`.
+Proof transactions:
 
-**First deploy** (unverified — predates the `source_repo`/attestation setup, kept
-for history): escrow `CBGXBSIUEJYWDUA5UJNTP37NOEZN2FYNIOTME5S6N5LJWCPRTVRP5BL3`,
-wasm `6f3cbfcc…`, built with `cargo build --target wasm32v1-none --release`.
+- Deploy (attested wasm): `d07468110a983073e42ded05d8df8e5ff5ec4a361fdcdd97cfefe323c6a56e49`
+- Operator buys 10 USDC on the testnet SDEX with XLM (`stellar tx new path-payment-strict-receive`): `327c92d908fd40cd598d45f3ed9bc61ca6d5b6200beab77c3f12b2c2a8648b92`
+- Deposit 10 USDC: `22cae5908b26bfa047041e1d0163f80ca9dd3d7ebe6ca9f1ed717d5fbb552127`
+- Release 1 USDC → `GCGL7HNDXA4RBKHDBOBFRM2RC2VQSK7ISB4PRPCEOBL5SAXGKNT46N6Q`: `fd861a36c91faf5ad57b7123be91a300059699a90b25128fe610572f800b45bb`
 
-Proof transactions on the **verified** escrow ([stellar.expert/explorer/testnet/contract/CAKKY5WK…](https://stellar.expert/explorer/testnet/contract/CAKKY5WKDXZRQVGD2UR72AV4FMZOS7EW3UGRET4CMQSX3QMWQTNEALJT)):
+After: escrow `balance()` = `90000000` (9 USDC), recipient holds 1 USDC. Both accounts
+hold a USDC trustline (`stellar tx new change-trust --line USDC:GBBD47…`); the release would
+fail without one.
 
-- Deploy (attested wasm): `7202b16a8408bf533254ca2d0c5ed19138bfba432548b114ebbd74d9a31e13ec`
-- Init (owner+token): `08417b611627ff03adb80b1e7424617e71652a67116835b701e5ae2d50c751f2`
-- Deposit 4 USDC: escrow → 4 USDC
-- Release 2 USDC → `GBB4YVM5…`: `573027bd2543d58721a406bb3cc616fbc49f2d80f7d45e6500c753a5024ac6f7`
+### Previous deployments
 
-After: escrow balance 2 USDC, recipient total 12 USDC. (The first, unverified
-escrow was proven the same way: deposit 15 → release 10, balance 5.) Operator got
-its 20 testnet USDC by buying on the testnet SDEX with XLM (path payment) — the
-Circle web faucet is reCAPTCHA-gated.
+- `CAKKY5WKDXZRQVGD2UR72AV4FMZOS7EW3UGRET4CMQSX3QMWQTNEALJT`: v0.1.0 of the old
+  `stellar-stablecoin-onramp-bot` repo (commit `0a88113`, SDK 22, public `init`, `refund`),
+  source-verified on StellarExpert, deployed 2026-10-21. Different interface; the current
+  client cannot call it.
+- `CBGXBSIUEJYWDUA5UJNTP37NOEZN2FYNIOTME5S6N5LJWCPRTVRP5BL3`: the first, unverified local build.
 
 ## 0. Prerequisites
 
@@ -173,11 +164,15 @@ That works on testnet: the pre-review `CAKKY5WK…` above shows `status: verifie
   `contracts/stellar/Cargo.toml`) runs `.github/workflows/release-stellar.yml`.
   It runs the stellar contracts CI, then the build workflow, which builds an
   optimized wasm, publishes it as a GitHub release and attests it.
+  The release is published under its own tag,
+  `stellar-escrow-v<version>_contracts_stellar_escrow_pkg<version>_cli<cli>`, with the
+  asset `escrow_v<version>.wasm`.
 - Check the downloaded wasm against the attestation, then deploy that file instead
   of a local build:
 
 ```bash
-gh attestation verify escrow_v<version>.wasm --repo BreadchainCoop/curacao-crypto-onramp-bot
+gh attestation verify escrow_v<version>.wasm --repo BreadchainCoop/curacao-crypto-onramp-bot \
+  --signer-repo stellar-expert/soroban-build-workflow   # the reusable workflow signs
 stellar contract deploy --wasm escrow_v<version>.wasm --source operator --network testnet \
   --alias escrow -- --owner $(stellar keys address operator) --token <USDC_SAC_ID>
 ```
