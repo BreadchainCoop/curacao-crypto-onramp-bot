@@ -21,6 +21,14 @@ contracts/evm/.coverage_artifacts/
 contracts/evm/.coverage_cache/
 contracts/evm/.coverage_contracts/evm/
 
+# Rust / Soroban (contracts/stellar)
+target/
+**/*.rs.bk
+*.wasm
+**/test_snapshots/
+.stellar/
+.soroban/
+
 # Build output
 dist/
 build/
