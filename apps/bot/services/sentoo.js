@@ -1,5 +1,5 @@
 // Minimal Sentoo client for the bot — payment-link creation only.
-// Mirrors backend/services/sentoo.js createPayment (the backend also does the
+// Mirrors apps/backend/services/sentoo.js createPayment (the backend also does the
 // webhook status re-fetch). TODO: extract a shared package.
 
 // Pull Sentoo's error message + reference out of a failed response, for logs.

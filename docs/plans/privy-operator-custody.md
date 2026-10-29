@@ -36,10 +36,10 @@ flowchart LR
   Sentoo[Sentoo_webhook] --> Backend
 ```
 
-- Auto-`release` after Sentoo: [`backend/services/escrow.js`](../../backend/services/escrow.js) via [`backend/routes/sentoo.js`](../../backend/routes/sentoo.js).
-- Admin `balance` / `refund`: [`bot/services/operator.js`](../../bot/services/operator.js) via [`bot/flows/admin.js`](../../bot/flows/admin.js).
-- Key wired through [`chains.js`](../../chains.js), [`.env.example`](../../.env.example), [`render.yaml`](../../render.yaml).
-- Contract: [`contracts/src/Escrow.sol`](../../contracts/src/Escrow.sol) — single `owner` may `release` and `refund`.
+- Auto-`release` after Sentoo: [`apps/backend/services/escrow.js`](../../apps/backend/services/escrow.js) via [`apps/backend/routes/sentoo.js`](../../apps/backend/routes/sentoo.js).
+- Admin `balance` / `refund`: [`apps/bot/services/operator.js`](../../apps/bot/services/operator.js) via [`apps/bot/flows/admin.js`](../../apps/bot/flows/admin.js).
+- Key wired through [`packages/chains/chains.js`](../../packages/chains/chains.js), [`.env.example`](../../apps/backend/.env.example), [`render.yaml`](../../render.yaml).
+- Contract: [`contracts/evm/src/Escrow.sol`](../../contracts/evm/src/Escrow.sol) — single `owner` may `release` and `refund`.
 
 ### Phase A target (MVP bootstrap)
 
@@ -73,7 +73,7 @@ flowchart TB
 
 | Layer | Privy operator? | Signer | Chain |
 |---|---|---|---|
-| Unit / CI (`npm test`) | No | Injected **fake** (record calls) | none |
+| Unit / CI (`pnpm test`) | No | Injected **fake** (record calls) | none |
 | Local / sandbox | Yes — **dev** operator app | Real Privy server wallet | Base Sepolia |
 | Production | Yes — **prod** operator app (separate credentials) | Real Privy server wallet | mainnet (after Phase B gates) |
 
@@ -117,11 +117,11 @@ Execute in order. Each unit should be its own PR or clearly separable commit ser
 
 **Likely files:**
 
-- `backend/services/escrow.js` (or split `escrow.js` + `privyOperator.js`)
-- `backend/index.js` / wiring
-- `backend/test/*` (fake signer; no live Privy in CI)
+- `apps/backend/services/escrow.js` (or split `escrow.js` + `privyOperator.js`)
+- `apps/backend/index.js` / wiring
+- `apps/backend/test/*` (fake signer; no live Privy in CI)
 - `.env.example`, `render.yaml`, `docs/DEPLOY.md`, `SECURITY.md` (item 4 progress note)
-- `chains.js` (stop requiring `ADMIN_WALLET_PRIVATE_KEY` for backend release path)
+- `packages/chains/chains.js` (stop requiring `ADMIN_WALLET_PRIVATE_KEY` for backend release path)
 
 **Acceptance:**
 
@@ -136,9 +136,9 @@ Execute in order. Each unit should be its own PR or clearly separable commit ser
 
 **Likely files:**
 
-- `bot/services/operator.js`, `bot/flows/admin.js`, `bot/index.js`
-- `bot/test/admin.test.js` (fake HTTP client or injected ops client)
-- New `backend/routes/ops.js` (or similar) + tests
+- `apps/bot/services/operator.js`, `apps/bot/flows/admin.js`, `apps/bot/index.js`
+- `apps/bot/test/admin.test.js` (fake HTTP client or injected ops client)
+- New `apps/backend/routes/ops.js` (or similar) + tests
 - Bot env: drop `ADMIN_WALLET_PRIVATE_KEY`
 
 **Acceptance:**
@@ -154,7 +154,7 @@ Execute in order. Each unit should be its own PR or clearly separable commit ser
 
 **Likely files:**
 
-- `contracts/src/Escrow.sol`, `contracts/test/Escrow.test.js`, deploy scripts, `contracts/DEPLOYMENTS.md`
+- `contracts/evm/src/Escrow.sol`, `contracts/evm/test/Escrow.test.js`, deploy scripts, `contracts/evm/DEPLOYMENTS.md`
 
 **Acceptance:**
 
@@ -179,13 +179,13 @@ Execute in order. Each unit should be its own PR or clearly separable commit ser
 
 ```bash
 # Bot
-cd bot && npm ci && npm test && npm run test:coverage
+cd apps/bot && pnpm test && pnpm run test:coverage
 
 # Backend
-cd backend && npm ci && npm test && npm run test:coverage
+cd apps/backend && pnpm test && pnpm run test:coverage
 
 # Contracts (when #21 touched)
-cd contracts && npm ci && npm test && npm run coverage
+cd contracts/evm && pnpm test && pnpm run test:coverage
 ```
 
 **Sandbox smoke (manual, not CI):**

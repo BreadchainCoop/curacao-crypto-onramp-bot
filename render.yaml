@@ -73,7 +73,7 @@ services:
         sync: false
       # Circle Programmable Wallets operator (escrow signer for ESCROW_SIGNER=circle).
       # Backend host only. Key stays in Circle's MPC/HSM; these authorize requests.
-      # Supports Arc + Base. See backend/services/circleOperator.js.
+      # Supports Arc + Base. See apps/backend/services/circleOperator.js.
       - key: CIRCLE_API_KEY
         sync: false
       - key: CIRCLE_ENTITY_SECRET

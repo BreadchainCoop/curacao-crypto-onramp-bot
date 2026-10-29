@@ -17,7 +17,7 @@ Notes:
 - **Source verification** on each explorer is pending a (free) explorer API key — the contracts are live and their bytecode is on-chain; verified source is a fast follow.
 - **Mainnet** (Base, Polygon, Celo) is a grant-funded milestone, gated on an independent audit + a multisig owner (rather than the current testnet key).
 
-_Records are generated automatically into `contracts/deployments.json` on each deploy._
+_Records are generated automatically into `contracts/evm/deployments.json` on each deploy._
 
 ## Mainnet (bounded canary)
 
@@ -65,7 +65,7 @@ Then:
 
 ## Switching networks for a demo
 
-The bot and backend read the active chain from a single `CHAIN` env var (registry in `chains.js`). To demo on a different network:
+The bot and backend read the active chain from a single `CHAIN` env var (registry in `packages/chains/chains.js`). To demo on a different network:
 
 ```bash
 # in .env

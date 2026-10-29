@@ -8,7 +8,7 @@
 // This is NOT a user-facing route — only the bot process calls it.
 //
 // The refund CAS/ordering invariant (only failed→refunded, DB claim before the
-// chain call, revert on chain failure) stays in the BOT (bot/flows/admin.js);
+// chain call, revert on chain failure) stays in the BOT (apps/bot/flows/admin.js);
 // this endpoint only performs the signed on-chain refund it is asked for.
 
 const express = require('express');

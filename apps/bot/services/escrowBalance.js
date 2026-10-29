@@ -7,7 +7,7 @@
 
 'use strict';
 
-// Just the view we call. Matches contracts/src/Escrow.sol `balance()`.
+// Just the view we call. Matches contracts/evm/src/Escrow.sol `balance()`.
 const ESCROW_BALANCE_ABI = ['function balance() view returns (uint256)'];
 const USDC_DECIMALS = 6;
 

@@ -14,8 +14,8 @@ implemented safeguards from pre-mainnet work that remains outstanding.
 - Accept only Synaps session IDs and status values in this system.
 - Do not fetch, persist, or log identity documents or document fields.
 - Preserve constant-time webhook-secret comparison.
-- Inspect `backend/routes/kyc.js`, `backend/services/synaps.js`,
-  `backend/services/users.js`, and the matching tests.
+- Inspect `apps/backend/routes/kyc.js`, `apps/backend/services/synaps.js`,
+  `apps/backend/services/users.js`, and the matching tests.
 - Treat compliance approval and processor agreements as legal/operations gates,
   not code assertions.
 
@@ -37,7 +37,7 @@ implemented safeguards from pre-mainnet work that remains outstanding.
   application behavior.
 - Reconcile `supabase/setup.sql`, summaries, and deploy documentation when schema
   or configuration changes.
-- Confirm chain selection through `chains.js`; never infer a safe network from
+- Confirm chain selection through `packages/chains/chains.js`; never infer a safe network from
   an RPC URL or contract address alone.
 - Do not deploy or alter external services without explicit user authorization.
 

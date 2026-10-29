@@ -43,7 +43,7 @@ Hosting model for the MVP:
 
    Do **not** set `ADMIN_WALLET_PRIVATE_KEY` on the backend when `ESCROW_SIGNER=privy`
    — it's a local-only fallback (`ESCROW_SIGNER=raw`). The operator wallet's
-   address must be the escrow owner on-chain (`contracts/scripts/transfer-ownership.js`).
+   address must be the escrow owner on-chain (`contracts/evm/scripts/transfer-ownership.js`).
 
 4. Deploy. Confirm health: open `https://<your-app>.onrender.com/health` → `{"ok":true}`.
 5. **Auto-deploy** is on: every push to `main` redeploys.
@@ -62,8 +62,9 @@ The `?token=` / `?secret=` are how each webhook is authenticated (see SECURITY.m
 ## 4. Run the bot (locally, for now)
 
 ```bash
-cd bot
-cp ../.env.example ../.env   # fill in the bot's vars
+pnpm install                 # once, at the repo root
+cd apps/bot
+cp .env.example .env         # fill in the bot's vars
 node index.js
 ```
 The bot needs its own vars: `TELEGRAM_BOT_TOKEN`, `PRIVY_APP_ID`/`PRIVY_APP_SECRET`,

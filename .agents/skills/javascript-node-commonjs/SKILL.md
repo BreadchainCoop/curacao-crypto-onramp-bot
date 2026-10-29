@@ -28,9 +28,9 @@ repository to another module system, language, framework, or test runner.
 
 ## Package boundaries
 
-- `bot/` owns Telegram interaction and user/admin flows.
-- `backend/` owns public webhooks, expiry, and automatic escrow release.
-- `chains.js` is shared by both processes.
+- `apps/bot/` owns Telegram interaction and user/admin flows.
+- `apps/backend/` owns public webhooks, expiry, and automatic escrow release.
+- `packages/chains/chains.js` is shared by both processes.
 - The root package is tooling only; dependencies belong to the package that uses
   them.
 
@@ -43,8 +43,8 @@ retry, and race cases where relevant. Avoid sleeps and shared mutable fixtures.
 Run:
 
 ```bash
-cd bot && npm test
-cd backend && npm test
+cd apps/bot && pnpm test
+cd apps/backend && pnpm test
 ```
 
 Read `AGENTS.md` and the relevant domain skill before changing KYC, payments,

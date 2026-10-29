@@ -23,21 +23,28 @@ review remain outstanding. Do not describe those controls as implemented.
 
 ## Repository map
 
-- `bot/`: Grammy bot, user/admin flows, in-memory session state, and service
-  clients. It creates orders; admin refunds are initiated here.
-- `backend/`: Express webhooks, order expiry, authoritative provider lookups,
-  and escrow release.
-- `contracts/`: Hardhat project containing the pooled-custody `Escrow.sol` and
-  deployment scripts.
+- `apps/bot/` (`@kambiox/bot`): Grammy bot, user/admin flows, in-memory session
+  state, and service clients. It creates orders; admin refunds are initiated here.
+- `apps/backend/` (`@kambiox/backend`): Express webhooks, order expiry,
+  authoritative provider lookups, and escrow release.
+- `apps/landing/`: the static KambioX landing page (Netlify).
+- `packages/chains/` (`@kambiox/chains`): shared chain registry used by the bot
+  and backend.
+- `contracts/evm/` (`@kambiox/contracts-evm`): Hardhat project containing the
+  pooled-custody `Escrow.sol` and deployment scripts.
+- `contracts/stellar/`: the Soroban (Rust) escrow for the Stellar rebuild, with
+  its own `AGENTS.md`, CI (`contracts-stellar.yml`) and runbook
+  (`docs/stellar/TESTNET.md`). A Cargo workspace outside the pnpm workspace.
 - `supabase/`: ordered Postgres migrations and the consolidated setup script.
-- `chains.js`: shared chain registry used by the bot and backend.
 - `render.yaml` and `docs/DEPLOY.md`: backend hosting and provider webhook setup.
 - `SECURITY.md`: current safeguards and pre-mainnet gates.
 - `docs/plans/` and `docs/solutions/`: accepted plans and compounded learnings
   when those artifacts exist.
 
-The root package contains commitlint tooling, not a JavaScript workspace.
-Install and test package dependencies in each package directory.
+The root is a pnpm workspace (`pnpm-workspace.yaml`) driven by Turborepo; `pnpm
+install` at the root installs every JavaScript package. Each app keeps its own
+`.env.example`. The Stellar contracts are not in the workspace: use `make`/`cargo`
+in `contracts/stellar`.
 
 ## Commands
 
@@ -46,35 +53,24 @@ threshold and exclude flags). Runtime on Node 20 may still work for
 `start` / plain `test`, but `test:coverage` needs Node 22+.
 
 ```bash
-# Root commit tooling
-npm ci
-npm run commitlint -- --from origin/main --to HEAD --verbose
+pnpm install                       # once, at the root (pnpm from packageManager)
+pnpm test                          # turbo run test in every package
+pnpm test:coverage                 # the CI coverage gate (backend, bot, contracts/evm)
+pnpm compile                       # hardhat compile
+pnpm --filter @kambiox/backend test:coverage   # one package (also: bot, contracts-evm)
+pnpm start:backend / pnpm start:bot
+pnpm exec commitlint --from origin/main --to HEAD --verbose
 
-# Bot
-cd bot
-npm ci
-npm test
-npm run test:coverage
-
-# Backend
-cd backend
-npm ci
-npm test
-npm run test:coverage
-
-# Contracts
-cd contracts
-npm ci
-npm test
-npm run coverage
-npm run compile
+# Stellar contracts (Rust; see contracts/stellar/AGENTS.md)
+cd contracts/stellar && make test && make build
 ```
 
 Coverage gates (also enforced in GitHub Actions after commitlint):
 
-- `backend` / `bot`: lines ≥ 80%, functions ≥ 70%, branches ≥ 70%;
+- `apps/backend` / `apps/bot`: lines ≥ 80%, functions ≥ 70%, branches ≥ 70%;
   excludes `index.js` and `test/**`
-- `contracts`: `Escrow.sol` lines ≥ 80%; `mocks/` skipped via `.solcover.js`
+- `contracts/evm`: `Escrow.sol` lines ≥ 80%; `mocks/` skipped via `.solcover.js`
+- `contracts/stellar`: lines ≥ 90% (`cargo llvm-cov`), plus fmt, clippy and `cargo audit`
 
 Run the smallest relevant test set while iterating, then the full affected
 package suite before handoff. Contract, money-path, and migration changes should
@@ -103,7 +99,7 @@ explicitly requests it.
 
 - Change order status through compare-and-set `tryTransition(id, from, to)`.
   Never replace it with an unconditional status update.
-- `backend/domain/orderStatus.js` defines legal application states. When adding
+- `apps/backend/domain/orderStatus.js` defines legal application states. When adding
   or changing a state, update its transition map, database CHECK constraints,
   audit behavior, user messages, and tests together.
 - Preserve expiry/payment race safety: only the winning CAS operation acts or

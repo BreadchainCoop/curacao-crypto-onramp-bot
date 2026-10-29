@@ -12,9 +12,9 @@
 //            on this host. Supports Arc + Base (see services/circleOperator.js)
 //
 // The public interface (`release(recipient, amountUsdc) -> txHash`) is unchanged,
-// so backend/routes/sentoo.js and bot admin flows keep working across adapters.
+// so apps/backend/routes/sentoo.js and bot admin flows keep working across adapters.
 
-// Minimal ABI — just the functions we call. Matches contracts/src/Escrow.sol.
+// Minimal ABI — just the functions we call. Matches contracts/evm/src/Escrow.sol.
 const ESCROW_ABI = [
   'function release(address recipient, uint256 amount)',
   'function refund(uint256 amount)',

@@ -86,7 +86,7 @@ balance, two interfaces, no wrap/convert step.
 - Do **not** "fix" this by adding a payable `receive()` to `Escrow.sol` — that's an
   audit-gated custody change and would let native coin get stuck on non-Arc chains.
 
-Easiest path: `backend/scripts/fund-escrow.js` funds via the Circle operator over
+Easiest path: `apps/backend/scripts/fund-escrow.js` funds via the Circle operator over
 the ERC-20 rail. The operator must hold USDC for **both** the float transfer and
 gas, so top up the operator EOA first (a plain native send to an EOA works).
 
@@ -96,25 +96,25 @@ gas, so top up the operator EOA first (a plain native send to an EOA works).
 
 Switching the live chain is a single `CHAIN` flip. Mainnet addresses come from
 **per-chain overrides** (the shared globals are never used on mainnet — see
-`chains.js`):
+`packages/chains/chains.js`):
 
 ```bash
 # Base mainnet
 CHAIN=base-mainnet
 ESCROW_SIGNER=privy
 BASE_MAINNET_ESCROW_ADDRESS=0x05b9aD81666f3a245500FCFc4E0e13017BcFAcD4
-# USDC is baked in chains.js (knownUsdc); override only for a bridged variant.
+# USDC is baked in packages/chains/chains.js (knownUsdc); override only for a bridged variant.
 
 # Arc mainnet
 CHAIN=arc-mainnet
 ESCROW_SIGNER=circle
 ARC_MAINNET_ESCROW_ADDRESS=0x0970462Cece33d425dBa716cbF4855bb4f44fCF5
-# USDC baked as 0x3600…0000 in chains.js.
+# USDC baked as 0x3600…0000 in packages/chains/chains.js.
 ```
 
 Keep the bot and backend on the **same** `CHAIN`.
 
 ---
 
-_Generated deploy records live in `contracts/deployments.json`; testnet escrows
-and the real-USDC-on-Arc-testnet path are documented in `contracts/DEPLOYMENTS.md`._
+_Generated deploy records live in `contracts/evm/deployments.json`; testnet escrows
+and the real-USDC-on-Arc-testnet path are documented in `contracts/evm/DEPLOYMENTS.md`._

@@ -15,7 +15,7 @@
 // The central USD/XCG parity is 1.79, but customers transact at the commercial-
 // bank rates around it. Because this on-ramp has the user pay XCG to receive a
 // USD-denominated asset (USDC), the user is BUYING USD, so the bank "Sell" USD
-// rate applies: 1.82 XCG per USD (see bot/lib/cbcsRates.js). It is NOT 1:1.
+// rate applies: 1.82 XCG per USD (see apps/bot/lib/cbcsRates.js). It is NOT 1:1.
 // Override via FX_PEG_RATE; refresh cbcsRates.js when CBCS publishes new rates.
 
 const { USD_SELL_RATE } = require('./cbcsRates');

@@ -19,7 +19,7 @@ A Telegram bot that lets users in Curaçao, Aruba, and Bonaire buy USDC stableco
 |---|---|
 | Bot | Node.js + Grammy (Telegram Bot API) |
 | Backend / Webhooks | Express.js |
-| Smart contract | Solidity (Hardhat) — deployed on Base Sepolia testnet |
+| Smart contract | Solidity (Hardhat) on EVM testnets (`contracts/evm`); Soroban (Rust) on Stellar testnet (`contracts/stellar`) |
 | Wallet creation | Privy embedded wallets |
 | KYC | Synaps |
 | Payment rail | Sentoo REST API (sandbox) |
@@ -29,74 +29,56 @@ A Telegram bot that lets users in Curaçao, Aruba, and Bonaire buy USDC stableco
 
 ## Monorepo structure
 
+pnpm workspace + Turborepo. JavaScript packages are `@kambiox/*`; the Stellar
+contracts are a Cargo workspace outside the pnpm workspace.
+
 ```
 curacao-crypto-onramp-bot/
-├── /.agents/skills    ← Shared CE, domain, and stack skills
-├── /.github/workflows  ← CI (commitlint, then coverage on PRs)
-├── /bot              ← Telegram bot logic
-│   ├── index.js
-│   ├── flows/
-│   │   ├── kyc.js
-│   │   ├── wallet.js
-│   │   └── buy.js
-│   └── state/
-│       └── session.js
-├── /backend          ← Webhook server + service integrations
-│   ├── index.js
-│   ├── routes/
-│   │   ├── sentoo.js
-│   │   └── kyc.js
-│   └── services/
-│       ├── escrow.js
-│       └── privy.js
-├── /contracts        ← Solidity escrow contract
-│   ├── src/
-│   │   ├── Escrow.sol
-│   │   └── mocks/
-│   │       └── MockUSDC.sol   ← test-only ERC20
-│   ├── test/
-│   │   └── Escrow.test.js
-│   ├── hardhat.config.js
-│   └── scripts/
-│       └── deploy.js
-├── /landing          ← KambioX landing page (static, hosted on Netlify)
-│   └── index.html
-├── /supabase         ← Database schema (migrations)
-│   └── migrations/
-│       └── 0001_init.sql
-├── netlify.toml      ← Netlify config for /landing
-├── commitlint.config.js
-├── package.json      ← root tooling (commitlint)
-├── AGENTS.md         ← Canonical contributor/agent guidance
-├── CLAUDE.md         ← Thin Claude Code import of AGENTS.md
-├── .env.example
-├── .gitignore
-└── README.md
+├── apps/
+│   ├── backend/        ← @kambiox/backend: Express webhooks + ops API (Render web)
+│   ├── bot/            ← @kambiox/bot: Telegram bot (Render worker)
+│   └── landing/        ← KambioX landing page (static, Netlify)
+├── packages/
+│   └── chains/         ← @kambiox/chains: chain registry shared by bot + backend
+├── contracts/
+│   ├── evm/            ← @kambiox/contracts-evm: Solidity Escrow.sol (Hardhat)
+│   └── stellar/        ← Soroban escrow (Rust): escrow/, Makefile, AGENTS.md
+├── supabase/           ← Database schema (migrations)
+├── docs/               ← DEPLOY.md, plans/, solutions/, stellar/TESTNET.md
+├── .agents/skills/     ← Shared CE, domain, and stack skills
+├── .github/workflows/  ← ci.yml (commitlint + coverage), contracts-stellar.yml, release-stellar.yml
+├── pnpm-workspace.yaml · turbo.json · package.json (root tooling)
+├── render.yaml · netlify.toml
+├── AGENTS.md           ← Canonical contributor/agent guidance
+└── CLAUDE.md           ← Thin Claude Code import of AGENTS.md
 ```
 
 ## Environment variables
 
-Copy `.env.example` to `.env` and fill in your values. **Never commit `.env` to this repository.**
-
-See `.env.example` for all required variables.
+Each app has its own example file: copy `apps/backend/.env.example`,
+`apps/bot/.env.example` and `contracts/evm/.env.example` to `.env` next to it
+and fill in your values. **Never commit a `.env`.**
 
 ## Getting started
 
 ```bash
-# Install dependencies (run in /bot and /backend separately)
-npm install
+# Node 22+. pnpm comes from the packageManager field (corepack or `npm i -g pnpm`).
+pnpm install
 
-# Deploy contract to Base Sepolia
-cd contracts
+# Tests and the CI coverage gate
+pnpm test
+pnpm test:coverage
+
+# Deploy the EVM contract to Base Sepolia
+cd contracts/evm
 npx hardhat run scripts/deploy.js --network base-sepolia
 
-# Start the backend webhook server
-cd backend
-node index.js
+# Start the backend webhook server / the Telegram bot
+pnpm start:backend
+pnpm start:bot
 
-# Start the Telegram bot
-cd bot
-node index.js
+# Stellar escrow (Rust): see contracts/stellar/AGENTS.md and docs/stellar/TESTNET.md
+cd contracts/stellar && make test
 ```
 
 ## Agents and Compound Engineering
@@ -137,15 +119,19 @@ custody, migrations, secrets, deployment, or mainnet work. See
 GitHub Actions (`.github/workflows/ci.yml`) runs on pull requests with Node 22:
 
 1. **commitlint** — Conventional Commits for every commit in the PR range
-2. **node-coverage** (after commitlint) — `backend` and `bot` `npm run test:coverage`
-3. **contracts-coverage** (after commitlint) — `contracts` `npm run coverage`
+2. **coverage** (after commitlint) — `pnpm turbo run test:coverage` for backend, bot and contracts/evm
+
+`contracts-stellar.yml` runs on changes under `contracts/stellar/` (fmt, clippy,
+`cargo audit`, `stellar contract build`, `cargo llvm-cov` ≥ 90% lines), and
+`release-stellar.yml` builds an attested wasm on `stellar-escrow-v*` tags.
 
 Coverage floors (CI hard-fail):
 
 | Package | Gate | Exclusions |
 |---|---|---|
-| backend / bot | lines 80%, functions 70%, branches 70% | `index.js`, `test/**` |
-| contracts | `Escrow.sol` lines 80% | `mocks/` (via `.solcover.js`) |
+| apps/backend / apps/bot | lines 80%, functions 70%, branches 70% | `index.js`, `test/**` |
+| contracts/evm | `Escrow.sol` lines 80% | `mocks/` (via `.solcover.js`) |
+| contracts/stellar | lines 90% | — |
 
 If branch protection still requires the old `Commitlint / commitlint` check, update it to the new `CI / …` job names after this workflow lands.
 
@@ -156,23 +142,21 @@ This repo uses [Conventional Commits](https://www.conventionalcommits.org/) (e.g
 To check locally after installing root tooling:
 
 ```bash
-npm install
-npx commitlint --from origin/main --to HEAD --verbose
+pnpm install
+pnpm exec commitlint --from origin/main --to HEAD --verbose
 ```
 
 Coverage locally (Node 22+):
 
 ```bash
-cd backend && npm run test:coverage
-cd bot && npm run test:coverage
-cd contracts && npm run coverage
+pnpm test:coverage
 ```
 
 ## Security
 
 - No secret keys, API keys, private keys, or tokens are ever stored in this repository
 - All secrets are loaded from environment variables at runtime
-- See `.env.example` for the full list of required variables (values are placeholders only)
+- See each app's `.env.example` for its required variables (values are placeholders only)
 - Admin wallet private key for contract interactions must be stored in a hardware wallet or secrets manager in production
 
 ## Status
