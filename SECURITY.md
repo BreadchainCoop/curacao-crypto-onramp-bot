@@ -41,11 +41,19 @@ Findings to weigh before mainnet:
   (`X-SENTOO-SECRET`) before acting. Idempotent via compare-and-set transitions.
 - `POST /webhook/kyc` ([routes/kyc.js](apps/backend/routes/kyc.js)) — verifies the
   `?secret=` query param (constant-time) against `SYNAPS_WEBHOOK_SECRET` and 401s
-  on mismatch.
+  on mismatch. This is the current Synaps adapter.
 
-Both providers authenticate webhooks with a **URL secret / status re-fetch, not an
-HMAC** — confirmed from each provider's own SDK, not assumed. Constant-time
+Sentoo and Synaps authenticate webhooks with a **URL secret / status re-fetch, not
+an HMAC** — confirmed from each provider's own SDK, not assumed. Constant-time
 comparison (`crypto.timingSafeEqual`) is used for both secrets.
+
+**Sumsub (the target KYC provider, see README) is different:** Sumsub signs each
+webhook with an HMAC of the raw body, sent in `X-Payload-Digest` with the
+algorithm in `X-Payload-Digest-Alg` (`HMAC_SHA256_HEX` by default; SHA1 is legacy),
+keyed by the per-webhook secret key. The port must verify that digest over the raw
+bytes with a constant-time compare, reject on mismatch, and still re-fetch the
+applicant's review status from the API instead of trusting the body. Sumsub's IPs
+are not a substitute (they can change).
 
 ## 3. ✅ No secrets, private keys, or API keys in git history
 
@@ -94,18 +102,23 @@ keys on the real client IP behind Railway's proxy. Covered by an automated test
 
 **Engineering review done; formal compliance review outstanding.**
 
-By design, no KYC document data ever enters this system:
-- The Synaps webhook ([routes/kyc.js](apps/backend/routes/kyc.js)) carries **no PII** —
-  only `session_id` + `status`. We act on `status` alone.
-- We **never** call the Synaps step-detail endpoints that return document fields,
-  so identity documents are never fetched, stored, or logged.
-- Logs include only `session_id` + `status`; only the user's `kyc_status`
+By design, no KYC document data ever enters this system. The current adapter is
+Synaps; the target provider is Sumsub (see README). The rules hold for both:
+- The KYC webhook ([routes/kyc.js](apps/backend/routes/kyc.js)) carries **no PII** —
+  only a session/applicant id + status (Synaps: `session_id` + `status`; Sumsub:
+  `applicantId`/`externalUserId` + `reviewStatus`/`reviewResult`, and Sumsub states
+  it sends no personal information in webhooks). We act on the status alone.
+- We **never** call the provider endpoints that return document or applicant
+  data (Synaps step details; Sumsub applicant data / document images), so identity
+  documents are never fetched, stored, or logged.
+- Logs include only the id + status; only the user's `kyc_status`
   (`approved`/`rejected`/…) is persisted.
 - Database access is server-side only; RLS is enabled on all tables with no
   policies (anon/authenticated denied), service-role key bypasses RLS.
 
 **Outstanding:** formal CBCS / local data-protection review (retention, lawful
-basis, data-subject rights, processor agreement with Synaps).
+basis, data-subject rights, processor agreement with Sumsub — and Synaps while it
+remains wired).
 
 ## 7. 📋 Regulatory check: CFTE license or equivalent
 
@@ -120,7 +133,8 @@ CBCS oversight (and AML/CFT obligations). This must be resolved with legal couns
 
 - All secrets are loaded from environment variables at runtime; none are hardcoded.
 - `.env` is gitignored and has never been committed; `.env.example` is placeholders.
-- Provider secrets (`SENTOO_API_KEY`, `SYNAPS_API_KEY`, `PRIVY_APP_SECRET`,
+- Provider secrets (`SENTOO_API_KEY`, `SYNAPS_API_KEY` — Sumsub's app token, secret
+  key and webhook secret key after the port — `PRIVY_APP_SECRET`,
   `ADMIN_WALLET_PRIVATE_KEY`, Supabase keys) are used only to build auth headers /
   signers and are never logged.
 - Supabase: RLS enabled on every table; the service-role key is server-side only.
