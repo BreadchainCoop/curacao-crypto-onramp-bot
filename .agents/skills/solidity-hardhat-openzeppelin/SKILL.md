@@ -7,7 +7,7 @@ license: MIT
 # Solidity, Hardhat, and OpenZeppelin
 
 Treat contract and signing changes as custody-sensitive. Read `AGENTS.md`,
-`SECURITY.md`, `contracts/src/Escrow.sol`, and existing tests before editing.
+`SECURITY.md`, `contracts/evm/src/Escrow.sol`, and existing tests before editing.
 
 ## Contract rules
 
@@ -49,13 +49,13 @@ lintspec.
   them over `require` strings; revert with the typed error.
 - Keep `ReentrancyGuard` + `SafeERC20`. Do not add Foundry or new dependencies.
 
-Layout: put the interface at `contracts/src/interfaces/IEscrow.sol` and the
-implementation at `contracts/src/Escrow.sol`.
+Layout: put the interface at `contracts/evm/src/interfaces/IEscrow.sol` and the
+implementation at `contracts/evm/src/Escrow.sol`.
 
 ## Hardhat and ethers v6
 
-- Follow the network definitions in `contracts/hardhat.config.js` and shared
-  metadata in `chains.js`.
+- Follow the network definitions in `contracts/evm/hardhat.config.js` and shared
+  metadata in `packages/chains/chains.js`.
 - Use ethers v6 APIs (`waitForDeployment`, `getAddress`, bigint values); do not
   copy ethers v5 examples using `.address`, `.deployed()`, or `ethers.utils`.
 - Keep testnet mock-token behavior separate from mainnet deployment paths.
@@ -65,7 +65,7 @@ implementation at `contracts/src/Escrow.sol`.
 
 ## Tests
 
-Extend `contracts/test/Escrow.test.js` for access control, transfer failures,
+Extend `contracts/evm/test/Escrow.test.js` for access control, transfer failures,
 balance boundaries, events, and reentrancy-sensitive behavior. Use fixtures
 where they improve isolation without hiding setup.
 
@@ -74,7 +74,7 @@ Run:
 ```bash
 cd contracts
 npx hardhat test
-npm run compile
+pnpm run compile
 ```
 
 An ordinary test or review does not constitute an independent smart-contract

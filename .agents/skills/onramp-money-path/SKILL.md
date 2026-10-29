@@ -12,21 +12,21 @@ replacement for it.
 ## Trace the flow
 
 1. Order creation pins the payout recipient:
-   - `bot/services/payments.js`
+   - `apps/bot/services/payments.js`
    - `supabase/migrations/0005_orders_payout_wallet.sql`
 2. Sentoo sends a transaction ID ping; the backend re-fetches authoritative
    status:
-   - `backend/routes/sentoo.js`
-   - `backend/services/sentoo.js`
+   - `apps/backend/routes/sentoo.js`
+   - `apps/backend/services/sentoo.js`
 3. Compare-and-set transitions claim each step:
-   - `backend/services/orders.js`
-   - `backend/domain/orderStatus.js`
+   - `apps/backend/services/orders.js`
+   - `apps/backend/domain/orderStatus.js`
 4. The backend releases escrow to the pinned wallet:
-   - `backend/services/escrow.js`
-   - `contracts/src/Escrow.sol`
+   - `apps/backend/services/escrow.js`
+   - `contracts/evm/src/Escrow.sol`
 5. Failed orders may be refunded through the admin flow:
-   - `bot/flows/admin.js`
-   - `bot/services/operator.js`
+   - `apps/bot/flows/admin.js`
+   - `apps/bot/services/operator.js`
 
 ## Change checklist
 

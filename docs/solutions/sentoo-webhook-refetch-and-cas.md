@@ -16,14 +16,14 @@ more than once.
 
 ## Solution
 
-`backend/routes/sentoo.js` combines two independent safeguards:
+`apps/backend/routes/sentoo.js` combines two independent safeguards:
 
 1. **Authoritative re-fetch.** For an order still in `pending_payment`, request
    its status from the Sentoo API and map only the provider response to a local
    outcome. Never read payment status from the webhook body.
 2. **Compare-and-set transition.** Claim the paid event with
    `tryTransition(orderId, pending_payment, paid)`. The Supabase implementation
-   in `backend/services/orders.js` updates only a row whose current status still
+   in `apps/backend/services/orders.js` updates only a row whose current status still
    matches. A duplicate or racing handler loses that update and cannot release
    funds.
 
@@ -46,7 +46,7 @@ change to the audit log.
 
 ## Verification
 
-`backend/test/sentoo-webhook.test.js` covers token rejection, graceful refund and
+`apps/backend/test/sentoo-webhook.test.js` covers token rejection, graceful refund and
 unknown-transaction acknowledgements, non-paid statuses, the successful release
 path, duplicate idempotency, failed/expired payments, and chain release failure.
 
@@ -54,11 +54,11 @@ Run:
 
 ```bash
 cd backend
-npm test
+pnpm test
 ```
 
-For transition changes, also run `backend/test/order-status.test.js` and
-`backend/test/expiry.test.js`.
+For transition changes, also run `apps/backend/test/order-status.test.js` and
+`apps/backend/test/expiry.test.js`.
 
 ## Limits
 

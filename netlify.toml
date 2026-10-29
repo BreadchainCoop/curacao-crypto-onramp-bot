@@ -1,9 +1,9 @@
-# Netlify serves the static KambioX landing page in /landing.
+# Netlify serves the static KambioX landing page in /apps/landing.
 # No build step: the page is a single self-contained index.html.
 [build]
-  base = "landing"
+  base = "apps/landing"
   publish = "."
   command = ""
 
-# Only rebuild when the landing page changes, not on bot/backend/contract commits.
+# Only rebuild when the landing page changes, not on app or contract commits.
   ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- ."

@@ -1,0 +1,23 @@
+{
+  "name": "@kambiox/backend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Express webhook server for the Curaçao crypto on-ramp",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-exclude='**/index.js' --test-coverage-exclude='**/test/**' --test-coverage-lines=80 --test-coverage-functions=70 --test-coverage-branches=70"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@kambiox/chains": "workspace:*",
+    "@circle-fin/developer-controlled-wallets": "^10.8.1",
+    "@privy-io/node": "^0.29.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.13.0",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.0"
+  }
+}

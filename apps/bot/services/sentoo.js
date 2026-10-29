@@ -1,0 +1,74 @@
+// Minimal Sentoo client for the bot — payment-link creation only.
+// Mirrors apps/backend/services/sentoo.js createPayment (the backend also does the
+// webhook status re-fetch). TODO: extract a shared package.
+
+// Pull Sentoo's error message + reference out of a failed response, for logs.
+async function sentooError(resp) {
+  try {
+    const body = await resp.json();
+    if (body && body.error) {
+      const ref = body.error.reference ? ` (ref ${body.error.reference})` : '';
+      return ` — ${body.error.message}${ref}`;
+    }
+  } catch {
+    /* non-JSON body */
+  }
+  return '';
+}
+
+function createSentooClient({ baseUrl, merchantId, secret, defaultCurrency = 'XCG', defaultReturnUrl, fetchImpl = fetch }) {
+  if (!baseUrl || !merchantId || !secret) {
+    throw new Error('Sentoo client requires baseUrl, merchantId, and secret');
+  }
+  const host = baseUrl.replace(/\/+$/, '');
+
+  async function createPayment({ orderId, amountXcg, description, currency, returnUrl }) {
+    // TODO(#6): confirm amount units. Sentoo's amount is an integer; we send
+    // minor units (XCG cents).
+    const amountMinor = Math.round(Number(amountXcg) * 100);
+    const params = new URLSearchParams({
+      sentoo_merchant: merchantId,
+      sentoo_amount: String(amountMinor),
+      sentoo_description: description ?? `Order ${orderId}`,
+      sentoo_currency: currency ?? defaultCurrency,
+      sentoo_return_url: returnUrl ?? defaultReturnUrl ?? '',
+    });
+    // No arbitrary reference field in Sentoo — the order is linked via the
+    // transaction token it returns (stored as sentoo_transaction_id).
+    const resp = await fetchImpl(`${host}/v1/payment/new`, {
+      method: 'POST',
+      headers: {
+        'X-SENTOO-SECRET': secret,
+        accept: 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params,
+    });
+    if (!resp.ok) {
+      throw new Error(`Sentoo payment creation failed: HTTP ${resp.status}${await sentooError(resp)}`);
+    }
+    const body = await resp.json();
+    const success = body && body.success;
+    if (!success || !success.data || !success.data.url) {
+      throw new Error('Sentoo payment creation returned an unexpected response');
+    }
+    return {
+      transactionId: success.message,
+      paymentUrl: success.data.url,
+      qrCode: success.data.qr_code,
+    };
+  }
+
+  return { createPayment };
+}
+
+function sentooFromEnv(env = process.env) {
+  return createSentooClient({
+    baseUrl: env.SENTOO_BASE_URL,
+    merchantId: env.SENTOO_MERCHANT_ID,
+    secret: env.SENTOO_API_KEY,
+    defaultReturnUrl: env.SENTOO_RETURN_URL,
+  });
+}
+
+module.exports = { createSentooClient, sentooFromEnv };

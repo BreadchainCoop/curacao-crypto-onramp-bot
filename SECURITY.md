@@ -14,7 +14,7 @@ Legend: ✅ done · ⚠️ partial / testnet-only · ❌ outstanding · 📋 leg
 
 Internal review done; an **independent audit is still required before mainnet.**
 
-Reviewed — [`contracts/src/Escrow.sol`](contracts/src/Escrow.sol):
+Reviewed — [`contracts/evm/src/Escrow.sol`](contracts/evm/src/Escrow.sol):
 - Uses OpenZeppelin `Ownable`, `ReentrancyGuard`, and `SafeERC20`.
 - `release()` and `refund()` are `onlyOwner` and `nonReentrant`; the only external
   calls are ERC-20 transfers via `SafeERC20`.
@@ -35,17 +35,25 @@ Findings to weigh before mainnet:
 
 ## 2. ✅ All webhook endpoints verify before processing
 
-- `POST /webhook/sentoo` ([routes/sentoo.js](backend/routes/sentoo.js)) — verifies
+- `POST /webhook/sentoo` ([routes/sentoo.js](apps/backend/routes/sentoo.js)) — verifies
   an optional `?token=` URL secret (constant-time) **and**, crucially, never trusts
   the webhook body: it re-fetches authoritative status from the Sentoo API
   (`X-SENTOO-SECRET`) before acting. Idempotent via compare-and-set transitions.
-- `POST /webhook/kyc` ([routes/kyc.js](backend/routes/kyc.js)) — verifies the
+- `POST /webhook/kyc` ([routes/kyc.js](apps/backend/routes/kyc.js)) — verifies the
   `?secret=` query param (constant-time) against `SYNAPS_WEBHOOK_SECRET` and 401s
-  on mismatch.
+  on mismatch. This is the current Synaps adapter.
 
-Both providers authenticate webhooks with a **URL secret / status re-fetch, not an
-HMAC** — confirmed from each provider's own SDK, not assumed. Constant-time
+Sentoo and Synaps authenticate webhooks with a **URL secret / status re-fetch, not
+an HMAC** — confirmed from each provider's own SDK, not assumed. Constant-time
 comparison (`crypto.timingSafeEqual`) is used for both secrets.
+
+**Sumsub (the target KYC provider, see README) is different:** Sumsub signs each
+webhook with an HMAC of the raw body, sent in `X-Payload-Digest` with the
+algorithm in `X-Payload-Digest-Alg` (`HMAC_SHA256_HEX` by default; SHA1 is legacy),
+keyed by the per-webhook secret key. The port must verify that digest over the raw
+bytes with a constant-time compare, reject on mismatch, and still re-fetch the
+applicant's review status from the API instead of trusting the body. Sumsub's IPs
+are not a substitute (they can change).
 
 ## 3. ✅ No secrets, private keys, or API keys in git history
 
@@ -61,7 +69,7 @@ key rotation.
 ## 4. 🟡 Admin wallet uses a hardware wallet or secrets manager
 
 **Backend escrow signing now uses a Privy operator server wallet (MPC).** The
-release path in `backend/services/escrow.js` goes through a signer seam
+release path in `apps/backend/services/escrow.js` goes through a signer seam
 (`ESCROW_SIGNER=fake|raw|privy`); with `privy`, the escrow signing key is sharded
 in Privy's MPC/TEE and never present on the host — the backend holds only request
 credentials (`PRIVY_OPERATOR_APP_ID/_APP_SECRET/_AUTHORIZATION_KEY/_WALLET_ID`).
@@ -71,10 +79,10 @@ was signed by Privy). See `docs/plans/privy-operator-custody.md` (Unit A1, #22).
 **Set `ESCROW_SIGNER=privy` in production and do NOT set `ADMIN_WALLET_PRIVATE_KEY`
 on the backend** — the raw key path (`raw`) is a local fallback only.
 
-**The bot holds no chain key (#18 done).** `bot/services/operator.js` is now an
+**The bot holds no chain key (#18 done).** `apps/bot/services/operator.js` is now an
 HTTP client to the backend ops API (`/ops/escrow/*`, bearer `OPS_API_SECRET`);
 admin balance/refund are signed by the backend via Privy. The refund CAS/ordering
-invariant stays in `bot/flows/admin.js`.
+invariant stays in `apps/bot/flows/admin.js`.
 
 **Outstanding before mainnet:** (a) #32/#33 — Escrow v2 role split so the operator
 can only `release` (bounded by caps/pause), with a Safe as committee/owner (#23);
@@ -85,7 +93,7 @@ service-role access).
 ## 5. ✅ Rate limiting on webhook endpoints
 
 `express-rate-limit` is applied to all `/webhook/*` routes in
-[backend/index.js](backend/index.js) (default 120 req/min/IP, configurable via
+[apps/backend/index.js](apps/backend/index.js) (default 120 req/min/IP, configurable via
 `WEBHOOK_RATE_MAX` / `WEBHOOK_RATE_WINDOW_MS`). `trust proxy` is set so the limiter
 keys on the real client IP behind Railway's proxy. Covered by an automated test
 (429 past the cap).
@@ -94,18 +102,23 @@ keys on the real client IP behind Railway's proxy. Covered by an automated test
 
 **Engineering review done; formal compliance review outstanding.**
 
-By design, no KYC document data ever enters this system:
-- The Synaps webhook ([routes/kyc.js](backend/routes/kyc.js)) carries **no PII** —
-  only `session_id` + `status`. We act on `status` alone.
-- We **never** call the Synaps step-detail endpoints that return document fields,
-  so identity documents are never fetched, stored, or logged.
-- Logs include only `session_id` + `status`; only the user's `kyc_status`
+By design, no KYC document data ever enters this system. The current adapter is
+Synaps; the target provider is Sumsub (see README). The rules hold for both:
+- The KYC webhook ([routes/kyc.js](apps/backend/routes/kyc.js)) carries **no PII** —
+  only a session/applicant id + status (Synaps: `session_id` + `status`; Sumsub:
+  `applicantId`/`externalUserId` + `reviewStatus`/`reviewResult`, and Sumsub states
+  it sends no personal information in webhooks). We act on the status alone.
+- We **never** call the provider endpoints that return document or applicant
+  data (Synaps step details; Sumsub applicant data / document images), so identity
+  documents are never fetched, stored, or logged.
+- Logs include only the id + status; only the user's `kyc_status`
   (`approved`/`rejected`/…) is persisted.
 - Database access is server-side only; RLS is enabled on all tables with no
   policies (anon/authenticated denied), service-role key bypasses RLS.
 
 **Outstanding:** formal CBCS / local data-protection review (retention, lawful
-basis, data-subject rights, processor agreement with Synaps).
+basis, data-subject rights, processor agreement with Sumsub — and Synaps while it
+remains wired).
 
 ## 7. 📋 Regulatory check: CFTE license or equivalent
 
@@ -120,7 +133,8 @@ CBCS oversight (and AML/CFT obligations). This must be resolved with legal couns
 
 - All secrets are loaded from environment variables at runtime; none are hardcoded.
 - `.env` is gitignored and has never been committed; `.env.example` is placeholders.
-- Provider secrets (`SENTOO_API_KEY`, `SYNAPS_API_KEY`, `PRIVY_APP_SECRET`,
+- Provider secrets (`SENTOO_API_KEY`, `SYNAPS_API_KEY` — Sumsub's app token, secret
+  key and webhook secret key after the port — `PRIVY_APP_SECRET`,
   `ADMIN_WALLET_PRIVATE_KEY`, Supabase keys) are used only to build auth headers /
   signers and are never logged.
 - Supabase: RLS enabled on every table; the service-role key is server-side only.

@@ -1,4 +1,0 @@
-[submodule "stellar"]
-	path = stellar
-	url = https://github.com/BreadchainCoop/stellar-stablecoin-onramp-bot.git
-	branch = main
