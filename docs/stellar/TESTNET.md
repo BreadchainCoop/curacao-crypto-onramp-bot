@@ -1,7 +1,8 @@
 # Launching & testing the Stellar escrow on testnet
 
 The Soroban escrow lives in `contracts/stellar` (a Cargo workspace outside the
-pnpm workspace). Its rules are in `contracts/stellar/AGENTS.md`.
+pnpm workspace). Its rules are in `contracts/stellar/AGENTS.md`; the system diagrams
+are in `contracts/stellar/ARCHITECTURE.md`.
 
 End-to-end: deploy the Soroban escrow to **testnet**, bind it to **USDC**, fund it,
 and prove a release. Everything here is testnet — no real funds.
