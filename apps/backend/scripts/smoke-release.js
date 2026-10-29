@@ -25,7 +25,6 @@
 
 'use strict';
 
-const path = require('path');
 const ethers = require('ethers');
 const { escrowFromEnv } = require('../services/escrow');
 const { activeChain } = require('@kambiox/chains');

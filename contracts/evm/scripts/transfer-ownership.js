@@ -20,7 +20,6 @@
 
 'use strict';
 
-const path = require('path');
 const ethers = require('ethers');
 
 const ABI = [

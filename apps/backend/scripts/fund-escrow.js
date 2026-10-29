@@ -26,7 +26,6 @@
 
 'use strict';
 
-const path = require('path');
 const ethers = require('ethers');
 const { activeChain } = require('@kambiox/chains');
 const { circleOperatorSignerFromEnv } = require('../services/circleOperator');
