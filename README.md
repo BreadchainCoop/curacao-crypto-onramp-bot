@@ -61,6 +61,7 @@ curacao-crypto-onramp-bot/
 │       └── deploy.js
 ├── /landing          ← KambioX landing page (static, hosted on Netlify)
 │   └── index.html
+├── /stellar          ← Stellar/Soroban rebuild (git submodule)
 ├── /supabase         ← Database schema (migrations)
 │   └── migrations/
 │       └── 0001_init.sql
@@ -83,6 +84,9 @@ See `.env.example` for all required variables.
 ## Getting started
 
 ```bash
+# Clone with the stellar submodule (existing clone: git submodule update --init)
+git clone --recurse-submodules git@github.com:BreadchainCoop/curacao-crypto-onramp-bot.git
+
 # Install dependencies (run in /bot and /backend separately)
 npm install
 
