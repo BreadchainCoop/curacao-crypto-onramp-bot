@@ -1,0 +1,68 @@
+name: contracts-stellar
+
+on:
+  push:
+    branches: [main]
+    paths: ["contracts/stellar/**", ".github/workflows/contracts-stellar.yml"]
+  pull_request:
+    paths: ["contracts/stellar/**", ".github/workflows/contracts-stellar.yml"]
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: contracts/stellar
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Installs the channel, wasm target and components pinned in
+      # contracts/stellar/rust-toolchain.toml (read from the working directory).
+      - name: Install Rust toolchain
+        run: rustup toolchain install
+
+      # Prebuilt, attestation-verified binary (no dbus build dep). Keep in step
+      # with the local CLI and the toolchain pin.
+      - name: Install stellar-cli
+        uses: stellar/stellar-cli@v26.1.0
+
+      - name: Install cargo-audit and cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit@0.22.2,cargo-llvm-cov@0.9.1
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            contracts/stellar/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('contracts/stellar/Cargo.lock', 'contracts/stellar/rust-toolchain.toml') }}
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      # Ignores live in contracts/stellar/.cargo/audit.toml, each with its reason.
+      - name: Audit dependencies
+        run: cargo audit
+
+      # SDK 28+ needs the CLI's build step (spec shaking); plain cargo build
+      # produces a different wasm.
+      - name: Build wasm
+        run: stellar contract build --locked
+
+      - name: Test with coverage gate
+        run: cargo llvm-cov --locked --fail-under-lines 90
