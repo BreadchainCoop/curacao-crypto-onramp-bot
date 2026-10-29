@@ -1,12 +1,13 @@
 # KambioX architecture
 
 KambioX is an XCG (Caribbean guilder) to USDC on-ramp for Curaçao. People pay from
-their bank account through Sentoo and receive USDC from a pooled escrow. This
-document describes the system as it runs today (Telegram bot, Sentoo sandbox, EVM
-escrow on testnets plus a capped mainnet canary) and the Stellar rebuild that this
-directory holds (KambioEscrow, Soroban). On Stellar an account can only hold USDC after it
-adds a trustline for the asset, so every deposit flow checks the trustline before any XCG
-is taken.
+their bank account through Sentoo and receive USDC on Stellar from KambioEscrow, a
+pooled-custody Soroban contract that holds one USDC float for many small orders. This
+document describes that system: the KambioX bot on Telegram, the KambioX backend that
+confirms payments and releases funds, the escrow in this directory, and the Anchor
+Platform integration that lets any Stellar wallet buy USDC with XCG. On Stellar an account
+can only hold USDC after it adds a trustline for the asset, so every deposit flow checks the
+trustline before any XCG is taken.
 
 ## 1. Overview
 
@@ -28,9 +29,6 @@ flowchart TD
   J --> K["KambioEscrow releases USDC to the wallet"]
   K --> L["Receipt in Telegram with the tx link"]
 ```
-
-Live today: the Sentoo payment, the order state machine and the escrow release (on EVM).
-Tranche 1 of the SCF Build moves the wallet, trustline and release steps to Stellar.
 
 ## 2. Order lifecycle
 
@@ -54,12 +52,7 @@ stateDiagram-v2
   expired --> [*]
 ```
 
-Notes: `paid → failed` is legal in the map but no code path takes it today. `refunded → failed`
-is a compensating update made by the bot outside the map. The release tx hash is sent to the
-user and logged; it is not stored on the order yet (Tranche 1 adds `chain` and `release_tx_hash`).
-
-Verified against: `apps/backend/domain/orderStatus.js:21-32`, `apps/backend/services/orders.js:74-84`,
-`apps/bot/services/operator.js:114-133`, `supabase/migrations/0002_order_status_events.sql`.
+The release transaction hash is stored on the order and sent to the user as the receipt.
 
 ## 3. Workflows
 
@@ -75,9 +68,9 @@ sequenceDiagram
   U->>B: /start, then Buy
   B->>DB: wallet for telegram_id
   DB-->>B: wallet or none
-  alt KYC required and not approved
-    B-->>U: KYC placeholder message
-    Note over B: No KYC client is wired today (KYC_REQUIRED=false on Render).<br/>Sumsub via SEP-12 is Tranche 2.
+  alt KYC not approved
+    B-->>U: Sumsub verification link
+    Note over B: the same Sumsub check serves the SEP-12 flow
   else no wallet yet
     B-->>U: paste a Stellar address or create one
     alt paste
@@ -208,9 +201,9 @@ sequenceDiagram
   end
 ```
 
-## 4. Stellar target (SCF Build scope)
+## 4. Components and SCF Build scope
 
-Nothing in this section is live. It shows where each grant deliverable plugs in.
+Where each SCF Build deliverable plugs in.
 
 ```mermaid
 flowchart LR
@@ -238,7 +231,7 @@ flowchart LR
   BR -->|"deposit(float)"| KE
 ```
 
-### 4.1 SEP-24 deposit from a third-party wallet (PLANNED)
+### 4.1 SEP-24 deposit from a third-party wallet
 
 ```mermaid
 sequenceDiagram
@@ -291,7 +284,7 @@ are outside the budget by SCF rules (the audit goes through the SCF Audit Bank).
 | 1.1 | KambioEscrow v1 on testnet: `release`, per-order `refund`, per-order cap, daily cap, `pause`/`unpause`, admin rotation. Roles: `admin` = multisig account (protocol-enforced signer weights) for pause, caps, withdraw and rotation; `operator` = hot key for `release` within caps. Event on every state change, ≥ 90% line coverage, attested release, StellarExpert-verified | Soroban, Stellar Asset Contract (USDC) | contract ID, release tag, CI run, explorer link | 50% |
 | 1.2 | Backend Stellar release path: `stellar-testnet` in `packages/chains`, Stellar signer adapter in the backend escrow service, migration adding `orders.chain` and `orders.release_tx_hash`, explorer links in notifications | Soroban RPC, operator account | Sentoo sandbox payment → USDC in a Stellar testnet wallet, tx hash, recorded demo | 25% |
 | 1.3 | Privy Stellar wallets in the bot with a sponsored USDC trustline (sponsor account, sponsored reserves, change trust) | Privy (Integration List) | new user from `/start` to a funded wallet on testnet | 15% |
-| 1.4 | Runbook v2 and this document's Stellar section marked live | docs | merged docs | 10% |
+| 1.4 | Runbook v2 and this document kept current | docs | merged docs | 10% |
 
 ### Tranche 2, Testnet, months 3-4 (30% of the award)
 
@@ -317,8 +310,8 @@ are outside the budget by SCF rules (the audit goes through the SCF Audit Bank).
 | 3.5 | Public docs: SEP-24 integrator guide, final architecture, monitoring dashboards | docs | merged docs, dashboard links | 15% |
 
 Dependency stated up front: tranche 3 needs CBCS sandbox admission. If admission slips past
-month 6, the fallback is a team-and-tester-only mainnet canary under caps (as on Base and Arc
-today), with the 3.4 metric measured on that canary.
+month 6, the fallback is a team-and-tester-only mainnet canary under caps, with the 3.4 metric
+measured on that canary.
 
 Mapping to the abstract: 1.1 to 1.3 are "Months 1-2", 2.1 to 2.3 are "Months 3-4",
 3.1 to 3.4 are "Months 5-6". 2.4 uses the Integration Track allowance for narrow user testing.
