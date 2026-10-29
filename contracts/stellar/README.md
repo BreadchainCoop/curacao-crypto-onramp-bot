@@ -18,3 +18,4 @@ make fmt
 ```
 
 Deploy + testnet USDC: see [`../../docs/stellar/TESTNET.md`](../../docs/stellar/TESTNET.md).
+Addresses: [`DEPLOYMENTS.md`](DEPLOYMENTS.md).
