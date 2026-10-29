@@ -14,7 +14,7 @@ What happens, in order, when someone buys USDC with XCG.
 
 ```mermaid
 flowchart TD
-  A["User opens the Telegram bot"] --> B["KYC check"]
+  A["User opens the KambioX bot"] --> B["KYC check"]
   B --> C{"Stellar wallet on file?"}
   C -->|no| D["Create a Privy Stellar wallet<br/>or paste a G... address"]
   C -->|yes| E
@@ -24,7 +24,7 @@ flowchart TD
   E -->|yes| G["Enter the amount, see the XCG quote"]
   G --> H["Order created, Sentoo payment link"]
   H --> I["User pays XCG in the banking app"]
-  I --> J["Sentoo webhook, backend re-fetches the status"]
+  I --> J["Sentoo webhook, KambioX backend re-fetches the status"]
   J --> K["KambioEscrow releases USDC to the wallet"]
   K --> L["Receipt in Telegram with the tx link"]
 ```
@@ -40,11 +40,11 @@ notifies, which is what makes the payment/expiry race safe.
 
 ```mermaid
 stateDiagram-v2
-  [*] --> pending_payment: bot creates the order
+  [*] --> pending_payment: KambioX bot creates the order
   pending_payment --> paid: webhook, Sentoo API says paid
   pending_payment --> failed: Sentoo API says failed
   pending_payment --> expired: Sentoo API says expired, or sweeper after TTL
-  paid --> releasing: backend claims the release
+  paid --> releasing: KambioX backend claims the release
   releasing --> complete: release tx confirmed
   releasing --> failed: release error
   failed --> refunded: admin refund (bot CAS)
@@ -68,7 +68,7 @@ Verified against: `apps/backend/domain/orderStatus.js:21-32`, `apps/backend/serv
 ```mermaid
 sequenceDiagram
   actor U as User
-  participant B as Bot
+  participant B as KambioX bot
   participant DB as Supabase
   participant P as Privy
 
@@ -96,19 +96,19 @@ sequenceDiagram
 ### 3.2 Deposit: XCG in, USDC out
 
 The escrow release is a Stellar Asset Contract transfer, which fails if the recipient has no
-USDC trustline. So the bot checks the trustline first and, if it is missing, prompts the user
+USDC trustline. So the KambioX bot checks the trustline first and, if it is missing, prompts the user
 to add it before showing the quote. For Privy wallets the operator account sponsors the
 reserve, so the user needs no XLM.
 
 ```mermaid
 sequenceDiagram
   actor U as User
-  participant B as Bot
+  participant B as KambioX bot
   participant H as Horizon
   participant P as Privy
   participant DB as Supabase
   participant S as Sentoo
-  participant BE as Backend
+  participant BE as KambioX backend
   participant KE as KambioEscrow
 
   U->>B: Buy, amount
@@ -151,8 +151,8 @@ under Sentoo's per-transaction lookup limit and makes duplicate or out-of-order 
 ```mermaid
 sequenceDiagram
   participant S as Sentoo
-  participant BE as Backend webhook
-  participant X as Expiry sweeper
+  participant BE as KambioX backend (webhook)
+  participant X as KambioX backend (expiry sweeper)
   participant DB as Supabase
   participant T as Telegram
 
@@ -184,11 +184,11 @@ buyer. Any fiat refund to the buyer is handled outside the system.
 
 ```mermaid
 sequenceDiagram
-  actor A as Admin (Telegram)
-  participant B as Bot
+  actor A as KambioX admin
+  participant B as KambioX bot
   participant DB as Supabase
-  participant BE as Backend /ops
-  participant E as Escrow
+  participant BE as KambioX backend (/ops)
+  participant E as KambioEscrow
 
   A->>B: /refund order-id
   B->>DB: order (must be failed)
@@ -215,13 +215,13 @@ Nothing in this section is live. It shows where each grant deliverable plugs in.
 ```mermaid
 flowchart LR
   subgraph Buyers
-    BOT["Telegram bot<br/>Privy Stellar wallet,<br/>sponsored USDC trustline"]
+    BOT["KambioX bot<br/>Privy Stellar wallet,<br/>sponsored USDC trustline"]
     W["any Stellar wallet<br/>via SEP-24"]
   end
   subgraph Anchor["Anchor Platform (Tranche 2)"]
     SEP["SEP-1 toml, SEP-10 auth,<br/>SEP-12 KYC (Sumsub),<br/>SEP-24 deposit"]
   end
-  BE["Backend<br/>Sentoo confirm, CAS,<br/>Stellar operator signer"]
+  BE["KambioX backend<br/>Sentoo confirm, CAS,<br/>Stellar operator signer"]
   subgraph Contract["KambioEscrow v1 (Tranche 1)"]
     KE["SAC USDC float<br/>release within per-order and daily caps<br/>refund, pause<br/>admin = multisig account, operator = hot key"]
   end
@@ -245,7 +245,7 @@ sequenceDiagram
   participant W as Stellar wallet
   participant AP as Anchor Platform
   participant KYC as Sumsub
-  participant BE as Backend
+  participant BE as KambioX backend
   participant S as Sentoo
   participant KE as KambioEscrow
 
