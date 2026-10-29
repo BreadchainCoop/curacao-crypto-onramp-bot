@@ -20,7 +20,7 @@
 //   SMOKE_AMOUNT=1        (USDC, human units; default 1)
 //
 // Usage:
-//   cd backend && node --env-file=../.env scripts/smoke-release.js
+//   cd apps/backend && node --env-file=.env scripts/smoke-release.js
 //   (or export the vars yourself, then: node scripts/smoke-release.js)
 
 'use strict';

@@ -1,11 +1,11 @@
 // Hardhat config — multi-chain deploy for Escrow.sol.
 //
-// Keys/RPCs come from the repo-root .env; never hardcode a private key here.
+// Keys/RPCs come from contracts/evm/.env; never hardcode a private key here.
 // Each network has its OWN RPC env var (with a working public default) so they
 // never collide. The single ADMIN_WALLET_PRIVATE_KEY deploys on every chain —
 // on testnets it just needs gas from that chain's faucet.
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 require('@nomicfoundation/hardhat-toolbox');
 
 const accounts = process.env.ADMIN_WALLET_PRIVATE_KEY

@@ -21,7 +21,7 @@
 //   FUND_AMOUNT=5                (USDC, human units; default 5)
 //
 // Usage (standalone terminal with your Circle creds):
-//   cd backend && node --env-file=../.env scripts/fund-escrow.js
+//   cd apps/backend && node --env-file=.env scripts/fund-escrow.js
 //   (or export the vars yourself first)
 
 'use strict';

@@ -2,7 +2,7 @@
 // Run: npx hardhat run scripts/deploy.js --network <network>
 //   e.g. --network gnosis-chiado   or   --network base-sepolia
 //
-// Reads RPC_URL and ADMIN_WALLET_PRIVATE_KEY from the root .env (via hardhat.config.js).
+// Reads the RPC overrides and ADMIN_WALLET_PRIVATE_KEY from contracts/evm/.env (via hardhat.config.js).
 // The deployer (admin wallet) becomes the escrow owner — the only address allowed
 // to call release() and refund().
 //

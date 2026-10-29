@@ -1,7 +1,7 @@
 // Telegram bot entry point
 // Uses Grammy: https://grammy.dev
 const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 const { Bot, session } = require('grammy');
 const { initialSession, resolveBuyGate } = require('./state/session');
