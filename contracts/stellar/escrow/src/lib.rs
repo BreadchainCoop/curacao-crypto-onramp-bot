@@ -9,7 +9,7 @@ mod storage;
 
 // Labels shown by explorers; not a source verification. The release workflow
 // injects `source_repo` (github:<owner>/<repo>), which StellarExpert uses to link
-// the attested wasm to its source, so it isn't embedded here (docs/stellar/TESTNET.md §6).
+// the attested wasm to its source, so it isn't embedded here (release-stellar.yml).
 contractmeta!(key = "name", val = "KambioEscrow");
 contractmeta!(
     key = "repo",

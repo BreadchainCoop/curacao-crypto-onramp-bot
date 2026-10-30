@@ -17,5 +17,4 @@ make build    # stellar contract build -> target/wasm32v1-none/release/escrow.wa
 make fmt
 ```
 
-Deploy + testnet USDC: see [`../../docs/stellar/TESTNET.md`](../../docs/stellar/TESTNET.md).
 Addresses: [`DEPLOYMENTS.md`](DEPLOYMENTS.md).
