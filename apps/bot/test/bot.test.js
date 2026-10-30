@@ -79,10 +79,10 @@ test('handleAddress rejects a bad wallet and keeps the flow open', async () => {
   assert.equal(s.flow.step, 'awaiting_address');
 });
 
-test('buyLimits defaults to 10 / 25000 USDC', () => {
+test('buyLimits defaults to 10 / 1000 USDC', () => {
   const { min, max } = buy.buyLimits({});
   assert.equal(min, 10);
-  assert.equal(max, 25000);
+  assert.equal(max, 1000);
 });
 
 test('buy.handleAmount rejects amounts outside the min/max range', async () => {
@@ -91,7 +91,7 @@ test('buy.handleAmount rejects amounts outside the min/max range', async () => {
     s.flow = { name: 'buy', step: 'awaiting_amount' };
     const ctx = mockCtx(s, amt);
     await buy.handleAmount(ctx);
-    assert.match(ctx.replies[0].text, /between 10 and 25,000/i);
+    assert.match(ctx.replies[0].text, /between 10 and 1,000/i);
     assert.equal(s.flow.step, 'awaiting_amount'); // did not advance to confirm
   }
 });

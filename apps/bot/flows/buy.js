@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const { quoteUsdcPurchase, loadFxConfig } = require('../lib/fx');
 const kb = require('../lib/keyboards');
 
-// Thousands-separated formatters for legibility (e.g. 25000 -> "25,000").
+// Thousands-separated formatters for legibility (e.g. 1000 -> "1,000").
 const fmtXcg = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtAmount = (n) => Number(n).toLocaleString('en-US');
 
@@ -17,7 +17,7 @@ const fmtAmount = (n) => Number(n).toLocaleString('en-US');
 function buyLimits(env = process.env) {
   return {
     min: Number(env.BUY_MIN_USDC) || 10,
-    max: Number(env.BUY_MAX_USDC) || 25000,
+    max: Number(env.BUY_MAX_USDC) || 1000,
   };
 }
 
