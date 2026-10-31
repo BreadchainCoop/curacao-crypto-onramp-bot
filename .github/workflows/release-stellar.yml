@@ -10,20 +10,15 @@ on:
     tags: ["stellar-escrow-v*"]
 
 permissions:
-  contents: read
+  id-token: write
+  contents: write
+  attestations: write
 
 jobs:
-  # The same gate as PRs, so only a tested commit gets released.
-  test:
-    uses: ./.github/workflows/contracts-stellar.yml
-
   # Builds an optimized wasm, publishes it as a GitHub release and attests it.
+  # Kept to this one job, as StellarExpert documents: runs with a test job stayed
+  # unverified. contracts-stellar.yml tests PRs, so only tag commits on main.
   escrow:
-    needs: test
-    permissions:
-      id-token: write
-      contents: write
-      attestations: write
     # StellarExpert's documented ref. A build pinned to 6b16426 (the same code)
     # stayed unverified. Upstream can change what gets attested: revisit before mainnet.
     uses: stellar-expert/soroban-build-workflow/.github/workflows/release.yml@main
