@@ -103,10 +103,8 @@ test('buy.handleAmount quotes a valid amount and advances to confirm', async () 
   await buy.handleAmount(ctx);
   assert.equal(s.flow.step, 'awaiting_confirm');
   assert.equal(s.flow.data.usdcAmount, 100);
-  // 182 subtotal + 2.73 spread (1.5%) + 4.55 fee (2.5%) + 2.69 Sentoo (1% + 0.4% inter-bank) = 191.97
-  assert.match(ctx.replies[0].text, /FX spread \(1\.5%\): 2\.73 XCG/);
-  assert.match(ctx.replies[0].text, /Fee \(2\.5%\): 4\.55 XCG/);
-  assert.match(ctx.replies[0].text, /You pay: 191\.97 XCG/);
+  // 182 subtotal + 5.46 fee (3%) + 2.66 Sentoo (1% + 0.4% inter-bank) = 190.12
+  assert.match(ctx.replies[0].text, /You pay: 190\.12 XCG/);
 });
 
 test('buy.handleAmount rejects a non-numeric amount', async () => {
