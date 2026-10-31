@@ -17,12 +17,13 @@ extern crate std;
 // - Given: the owner signed
 //   - When: amount > pool -> InsufficientBalance
 //   - When: amount == pool -> recipient receives it all; auth: owner -> release, no subs; emits Release
-// withdraw(amount)
+// withdraw(to, amount)
 // - When: amount <= 0 -> InvalidAmount, before any auth
+// - When: to is the escrow -> InvalidRecipient, before any auth
 // - Given: a non-owner signed -> Error(Auth, InvalidAction)
 // - Given: the owner signed
 //   - When: amount > pool -> InsufficientBalance
-//   - When: amount == pool -> owner receives it all; auth: owner -> withdraw, no subs; emits Withdraw
+//   - When: amount == pool -> `to` receives it all, not the owner; auth: owner -> withdraw, no subs; emits Withdraw
 // deposit / release / withdraw
 // - It: extends the instance TTL to INSTANCE_EXTEND_TO
 
@@ -258,41 +259,55 @@ fn withdraw_given_non_owner_signer_fails() {
             invoke: &MockAuthInvoke {
                 contract: &s.id,
                 fn_name: "withdraw",
-                args: (1_000_i128,).into_val(&s.env),
+                args: (&attacker, 1_000_i128).into_val(&s.env),
                 sub_invokes: &[],
             },
         }])
-        .withdraw(&1_000);
+        .withdraw(&attacker, &1_000);
 }
 
 #[test]
 fn withdraw_when_amount_is_not_positive_fails_with_invalid_amount() {
     let s = setup();
+    let to = Address::generate(&s.env);
     for amount in [0, -1] {
         assert_eq!(
-            s.escrow.mock_auths(&[]).try_withdraw(&amount),
+            s.escrow.mock_auths(&[]).try_withdraw(&to, &amount),
             Err(Ok(Error::InvalidAmount))
         );
     }
 }
 
 #[test]
+fn withdraw_when_to_is_the_escrow_fails_with_invalid_recipient() {
+    let s = setup();
+    s.token_admin.mint(&s.id, &1_000);
+
+    assert_eq!(
+        s.escrow.mock_auths(&[]).try_withdraw(&s.id, &1_000),
+        Err(Ok(Error::InvalidRecipient))
+    );
+}
+
+#[test]
 fn withdraw_when_amount_exceeds_pool_fails_with_insufficient_balance() {
     let s = setup();
+    let to = Address::generate(&s.env);
     s.token_admin.mint(&s.id, &100);
 
     assert_eq!(
-        s.escrow.try_withdraw(&101),
+        s.escrow.try_withdraw(&to, &101),
         Err(Ok(Error::InsufficientBalance))
     );
 }
 
 #[test]
-fn withdraw_when_amount_equals_pool_pays_owner_in_full() {
+fn withdraw_when_amount_equals_pool_pays_to_in_full() {
     let s = setup();
+    let to = Address::generate(&s.env);
     s.token_admin.mint(&s.id, &1_000);
 
-    s.escrow.withdraw(&1_000);
+    s.escrow.withdraw(&to, &1_000);
     assert_eq!(
         s.env.auths(),
         std::vec![(
@@ -301,7 +316,7 @@ fn withdraw_when_amount_equals_pool_pays_owner_in_full() {
                 function: AuthorizedFunction::Contract((
                     s.id.clone(),
                     symbol_short!("withdraw"),
-                    (1_000_i128,).into_val(&s.env),
+                    (&to, 1_000_i128).into_val(&s.env),
                 )),
                 sub_invocations: std::vec![],
             }
@@ -309,9 +324,14 @@ fn withdraw_when_amount_equals_pool_pays_owner_in_full() {
     );
     assert_eq!(
         s.env.events().all().filter_by_contract(&s.id),
-        [Withdraw { amount: 1_000 }.to_xdr(&s.env, &s.id)]
+        [Withdraw {
+            to: to.clone(),
+            amount: 1_000,
+        }
+        .to_xdr(&s.env, &s.id)]
     );
-    assert_eq!(s.token.balance(&s.owner), 1_000);
+    assert_eq!(s.token.balance(&to), 1_000);
+    assert_eq!(s.token.balance(&s.owner), 0);
     assert_eq!(s.escrow.balance(), 0);
 }
 
@@ -340,6 +360,6 @@ fn state_changing_calls_extend_instance_ttl() {
     assert_eq!(ttl(), INSTANCE_EXTEND_TO);
 
     age();
-    s.escrow.withdraw(&600);
+    s.escrow.withdraw(&recipient, &600);
     assert_eq!(ttl(), INSTANCE_EXTEND_TO);
 }

@@ -55,6 +55,8 @@ pub struct Release {
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Withdraw {
+    #[topic]
+    pub to: Address,
     pub amount: i128,
 }
 
@@ -106,21 +108,24 @@ impl Escrow {
         Ok(())
     }
 
-    /// Owner-only: move `amount` of pooled funds to the owner (treasury
-    /// withdrawal). The owner must authorize.
-    pub fn withdraw(env: Env, amount: i128) -> Result<(), Error> {
+    /// Owner-only: move `amount` of pooled funds to `to` (treasury withdrawal or
+    /// a drain to a new deployment). The owner must authorize.
+    pub fn withdraw(env: Env, to: Address, amount: i128) -> Result<(), Error> {
         storage::extend_instance(&env);
         if amount <= 0 {
             return Err(Error::InvalidAmount);
         }
-        let owner = Self::require_owner(&env)?;
+        if to == env.current_contract_address() {
+            return Err(Error::InvalidRecipient);
+        }
+        Self::require_owner(&env)?;
         let token = storage::get_token(&env)?;
         let client = token::Client::new(&env, &token);
         if client.balance(&env.current_contract_address()) < amount {
             return Err(Error::InsufficientBalance);
         }
-        client.transfer(&env.current_contract_address(), &owner, &amount);
-        Withdraw { amount }.publish(&env);
+        client.transfer(&env.current_contract_address(), &to, &amount);
+        Withdraw { to, amount }.publish(&env);
         Ok(())
     }
 
