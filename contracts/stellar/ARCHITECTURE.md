@@ -189,7 +189,7 @@ sequenceDiagram
   A->>B: confirm
   B->>DB: CAS failed → refunded
   B->>BE: POST /ops/escrow/refund (Bearer OPS_API_SECRET)
-  BE->>E: refund(amount) to owner
+  BE->>E: withdraw(owner, amount)
   alt tx ok
     E-->>BE: tx hash
     BE-->>B: 200, tx hash
@@ -216,7 +216,7 @@ flowchart LR
   end
   BE["KambioX backend<br/>Sentoo confirm, CAS,<br/>Stellar operator signer"]
   subgraph Contract["KambioEscrow v1 (Tranche 1)"]
-    KE["SAC USDC float<br/>release within per-order and daily caps<br/>refund, pause<br/>admin = multisig account, operator = hot key"]
+    KE["SAC USDC float<br/>release within per-order and daily caps<br/>refund, withdraw(to, amount), pause<br/>admin = multisig account, operator = hot key"]
   end
   S["Sentoo<br/>XCG bank rail"]
   BR["Bridge (Tranche 2)<br/>USD wire → Stellar USDC"]
@@ -267,51 +267,56 @@ sequenceDiagram
   AP-->>W: status: completed
 ```
 
-## 5. SCF Build tranches
+## 5. SCF Build deliverables, hours and costs
 
-Deliverables for the Integration Track submission (Anchor Platform, Bridge, Privy). SCF pays
-10% on acceptance, then 20% / 30% / 40% against tranches 1 to 3; each tranche form is due
-within 90 days of the previous payment, and the project runs at most 6 months. The shares
-below are of each tranche, so the sheet can be filled from them. Audit, legal and entity costs
-are outside the budget by SCF rules (the audit goes through the SCF Audit Bank).
+This section matches the SCF Build submission field for field. The anchor also serves SEP-38 firm quotes and SEP-6 programmatic deposits in tranche 3, on the same SEP-10 auth, SEP-12 KYC and KambioEscrow release path shown above.
 
-### Tranche 1, MVP, months 1-2 (20% of the award)
 
-"KambioEscrow v1 and the bot on Stellar testnet."
+Rates: Fernando Trouw USD 100/h, Ruben Russel USD 80/h.
 
-| ID | Deliverable | Stellar component | Evidence | Share of T1 |
+| # | Deliverable | Owner | Hours | Cost (USD) |
 |---|---|---|---|---|
-| 1.1 | KambioEscrow v1 on testnet: `release`, per-order `refund`, per-order cap, daily cap, `pause`/`unpause`, admin rotation. Roles: `admin` = multisig account (protocol-enforced signer weights) for pause, caps, `withdraw(to, amount)` and rotation; `operator` = hot key for `release` within caps. Event on every state change, ≥ 90% line coverage, attested release, StellarExpert-verified | Soroban, Stellar Asset Contract (USDC) | contract ID, release tag, CI run, explorer link | 50% |
-| 1.2 | Backend Stellar release path: `stellar-testnet` in `packages/chains`, Stellar signer adapter in the backend escrow service, migration adding `orders.chain` and `orders.release_tx_hash`, explorer links in notifications | Soroban RPC, operator account | Sentoo sandbox payment → USDC in a Stellar testnet wallet, tx hash, recorded demo | 25% |
-| 1.3 | Privy Stellar wallets in the bot with a sponsored USDC trustline (sponsor account, sponsored reserves, change trust) | Privy (Integration List) | new user from `/start` to a funded wallet on testnet | 15% |
-| 1.4 | Runbook v2 and this document kept current | docs | merged docs | 10% |
+| 1.1 | KambioEscrow v1 | Fernando 120 | 120 | 12,000 |
+| 1.2 | Stellar settlement path in the backend | Ruben 80 | 80 | 6,400 |
+| 1.3 | Privy Stellar wallets in the bot | Ruben 8 | 8 | 640 |
+| 1.4 | Sponsored account activation and USDC trustline | Ruben 32 | 32 | 2,560 |
+| | **Tranche 1** | | **240** | **21,600** |
+| 2.1 | Anchor Platform deployment (SEP-1, SEP-10) | Fernando 120 | 120 | 12,000 |
+| 2.2 | SEP-12 KYC through Sumsub, shared by wallets and the bot | Ruben 80 | 80 | 6,400 |
+| 2.3 | SEP-24 deposit and business server | Fernando 80, Ruben 80 | 160 | 14,400 |
+| 2.4 | Bridge float refill | Fernando 40 | 40 | 4,000 |
+| 2.5 | STRIDE threat model and monitoring plan | Fernando 20, Ruben 20 | 40 | 3,600 |
+| 2.6 | Application security testing of KambioEscrow | Fernando 40 | 40 | 4,000 |
+| | **Tranche 2** | | **480** | **44,400** |
+| 3.1 | SEP-38 firm quotes | Fernando 40 | 40 | 4,000 |
+| 3.2 | SEP-6 programmatic deposit | Fernando 60 | 60 | 6,000 |
+| 3.3 | KambioX anchor on mainnet | Fernando 30, Ruben 20 | 50 | 4,600 |
+| 3.4 | KambioEscrow on mainnet | Fernando 20, Ruben 10 | 30 | 2,800 |
+| 3.5 | Live monitoring and public dashboard | Ruben 40 | 40 | 3,200 |
+| 3.6 | User testing in Curaçao (user-testing line) | Ruben 30 | 30 | 2,400 |
+| | **Tranche 3** | | **250** | **23,000** |
+| | **Total** | Fernando 570, Ruben 400 | **970** | **89,000** |
 
-### Tranche 2, Testnet, months 3-4 (30% of the award)
+Integration List blocks: Anchor Platform USD 47,400 (2.1, 2.2, 2.3, 3.1, 3.2, 3.3), Bridge USD 4,000 (2.4), Privy USD 3,200 (1.3, 1.4). Total USD 54,600, 61 percent of the ask.
 
-"Any Stellar wallet buys USDC with XCG."
+Final-tranche onchain metric (Integration Track): USD 10,000 of USDC released to users through KambioEscrow on mainnet within 60 days of the first mainnet release, team and treasury accounts excluded. Verified on the public dashboard (3.5) and StellarExpert.
 
-| ID | Deliverable | Stellar component | Evidence | Share of T2 |
-|---|---|---|---|---|
-| 2.1 | Anchor Platform on testnet: SEP-1 `stellar.toml` on the KambioX domain, SEP-10 auth, SEP-12 KYC through the Sumsub callback, SEP-24 interactive deposit reusing the existing quote and Sentoo page, release to the SEP-10 account | Anchor Platform (Integration List) | SDF anchor validator pass for SEP-1/10/12/24; deposit from a third-party wallet (Lobstr, Beans or Freighter) recorded | 45% |
-| 2.2 | Bridge refill: business account, USD wire → Stellar USDC → `deposit` into KambioEscrow; treasury reconciliation job (Bridge transfers vs on-chain deposits); XCG → USD → Bridge runbook | Bridge (Integration List) | sandbox transfer landing in the escrow, reconciliation report | 15% |
-| 2.3 | Threat model and monitoring: STRIDE document; alerts on escrow balance vs outstanding orders, daily cap usage, pause state and failed releases; on-chain event ingestion feeding reconciliation; Audit Bank application submitted | Soroban events, RPC | documents in the repo, alert screenshots, Audit Bank confirmation | 25% |
-| 2.4 | Narrow user testing in Curaçao: 20-30 testers on testnet through the bot and a SEP-24 wallet, feedback report | bot, Anchor Platform | tester log and report | 15% |
+### Not funded by this grant
 
-### Tranche 3, Mainnet, months 5-6 (40% of the award)
+Telegram bot, backend and Sentoo integration (existing), the Sentoo production setup, CBCS reporting and compliance tooling, EVM escrows, the minimal KambioEscrow deployed before submission, USDC float, Sentoo and Sumsub fees, hosting, CBCS licensing, legal and incorporation costs, marketing, and the security audit (Soroban Security Audit Bank).
 
-"Capped mainnet inside the CBCS sandbox."
+### Dependency and contingency
 
-| ID | Deliverable | Stellar component | Evidence | Share of T3 |
-|---|---|---|---|---|
-| 3.1 | KambioEscrow on mainnet, attested and verified, admin multisig live, caps at the sandbox figures, pause drill run, audit findings fixed | Soroban mainnet | contract ID, multisig account, drill log | 30% |
-| 3.2 | Anchor Platform on mainnet with Circle USDC, Sumsub production KYC | Anchor Platform | `stellar.toml` live, mainnet deposit from a third-party wallet | 25% |
-| 3.3 | First production float through Bridge, treasury runbook executed | Bridge | funding transaction into the escrow | 10% |
-| 3.4 | Committed on-chain metric (Integration Track gate): at least 100 completed orders and 50 distinct recipient accounts released on mainnet within the tranche window | Soroban mainnet | explorer query over release events | 20% |
-| 3.5 | Public docs: SEP-24 integrator guide, final architecture, monitoring dashboards | docs | merged docs, dashboard links | 15% |
+Mainnet runs inside the CBCS VASP sandbox (filing December 2026). Tranches 1 and 2 run on testnet and do not depend on it. If sandbox admission is not granted by week 20, we notify SCF before the tranche deadline and request the jurisdiction-modified final tranche the SCF rules provide for.
 
-Dependency stated up front: tranche 3 needs CBCS sandbox admission. If admission slips past
-month 6, the fallback is a team-and-tester-only mainnet canary under caps, with the 3.4 metric
-measured on that canary.
+### Starting point (built before submission, not billed)
 
-Mapping to the abstract: 1.1 to 1.3 are "Months 1-2", 2.1 to 2.3 are "Months 3-4",
-3.1 to 3.4 are "Months 5-6". 2.4 uses the Integration Track allowance for narrow user testing.
+KambioEscrow v0.3.0 on testnet (`CARXCXWNW5NF4ZLLM6S3VPY7DXNPSUNRYNXVVS2BALU3X6IJALDYHTJY`): owner-only `release` and `withdraw`, `deposit`, `balance`, events, 15 unit tests in CI, attested release. A test deposit of 9 USDC, a release of 1 USDC and a withdrawal of 1 USDC are settled on testnet. Tranche 1 builds KambioEscrow v1 on top of it (operator role, caps, pause, multisig admin, replay protection).
+
+### Sandbox limits
+
+During the CBCS sandbox phase the bot accepts orders of 10 to 1,000 USDC, with a per-user daily limit. KambioEscrow v1 enforces the same per-order cap on chain and adds a contract-level daily cap (deliverable 1.1).
+
+### Pricing shown to the user
+
+1.82 XCG per USDC, a 3% service fee (min 0.5 XCG, max 182 XCG) and Sentoo processing passed through at cost, in one quoted price: 190.12 XCG for 100 USDC.
