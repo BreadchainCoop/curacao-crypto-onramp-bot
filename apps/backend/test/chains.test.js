@@ -2,7 +2,10 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { activeChain } = require('@kambiox/chains');
+const { activeChain, escrowUrl } = require('@kambiox/chains');
+
+const STELLAR_CONTRACT = 'CCA2WYNWADCEH5ZZ36D7II5OCVZL3HTMIKDTOC74HEVHHJZONNT2AXR5';
+const STELLAR_USDC_SAC = 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA';
 
 const ARC_USDC = '0x3600000000000000000000000000000000000000';
 const BASE_USDC = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
@@ -60,4 +63,45 @@ test('testnet per-chain override still wins over the global', () => {
     ...STALE,
   });
   assert.equal(t.escrowAddress, '0x00000000000000000000000000000000000000ee');
+});
+
+// ── Stellar (Soroban) ──
+test('stellar-testnet resolves to a distinctly shaped stellar object', () => {
+  const s = activeChain({ CHAIN: 'stellar-testnet', STELLAR_OPERATOR_SECRET: 'SABC' });
+  assert.equal(s.stellar, true);
+  assert.equal(s.contractId, STELLAR_CONTRACT); // baked-in known contract
+  assert.equal(s.usdcSac, STELLAR_USDC_SAC);
+  assert.equal(s.usdcDecimals, 7);
+  assert.equal(s.operatorSecret, 'SABC');
+  assert.equal(s.networkPassphrase, 'Test SDF Network ; September 2015');
+  // Must NOT carry EVM-shaped fields that code could mistake for an EVM chain.
+  assert.equal(s.escrowAddress, undefined);
+  assert.equal(s.usdcAddress, undefined);
+  assert.equal(s.chainId, undefined);
+  assert.equal(s.privateKey, undefined);
+});
+
+test('stellar ignores stale EVM globals (no cross-contamination)', () => {
+  const s = activeChain({ CHAIN: 'stellar-testnet', ...STALE });
+  assert.equal(s.escrowAddress, undefined);
+  assert.equal(s.usdcAddress, undefined);
+  assert.equal(s.contractId, STELLAR_CONTRACT); // still the baked Soroban contract
+});
+
+test('stellar per-chain overrides win (redeploy / different SAC)', () => {
+  const s = activeChain({
+    CHAIN: 'stellar-testnet',
+    STELLAR_TESTNET_ESCROW_CONTRACT_ID: 'CDWONTMATCHxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+    STELLAR_TESTNET_USDC_SAC: 'CSOMEOTHERSACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+  });
+  assert.equal(s.contractId, 'CDWONTMATCHxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx');
+  assert.equal(s.usdcSac, 'CSOMEOTHERSACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx');
+});
+
+test('escrowUrl uses the Soroban /contract/ path for stellar', () => {
+  const s = activeChain({ CHAIN: 'stellar-testnet' });
+  assert.equal(
+    escrowUrl(s),
+    `https://stellar.expert/explorer/testnet/contract/${STELLAR_CONTRACT}`
+  );
 });
