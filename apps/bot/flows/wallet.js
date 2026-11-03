@@ -4,27 +4,48 @@
 // email and control it — it's theirs, not app-custodied. (#7)
 
 const { getAddress } = require('ethers');
+const { activeChain } = require('@kambiox/chains');
+const { isValidEd25519PublicKey } = require('../lib/strkey');
 const kb = require('../lib/keyboards');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/**
- * Return the EIP-55 checksummed form of an address, or null if it isn't a valid
- * address. `ethers.getAddress` accepts all-lowercase input (and normalises it)
- * but REJECTS a mixed-case address whose checksum is wrong — catching typos that
- * a hex-only regex would wave through.
- */
-function normalizeAddress(text) {
+/** The active chain, resolved lazily and defensively — never throws in the bot. */
+function currentChain() {
   try {
-    return getAddress(String(text).trim());
+    return activeChain();
+  } catch {
+    return {};
+  }
+}
+
+/** True when the active chain is Stellar (Soroban), not EVM. */
+function isStellarChain(chain = currentChain()) {
+  return !!(chain && chain.stellar);
+}
+
+/**
+ * Normalise a pasted destination address for the ACTIVE chain, or return null
+ * if it isn't valid.
+ *   EVM:     EIP-55 checksummed via ethers.getAddress (rejects bad checksums).
+ *   Stellar: a StrKey ed25519 account (G…), validated via the Stellar SDK,
+ *            which is lazy-required so the EVM bot never loads it.
+ */
+function normalizeAddress(text, chain = currentChain()) {
+  const t = String(text).trim();
+  if (isStellarChain(chain)) {
+    return isValidEd25519PublicKey(t) ? t : null;
+  }
+  try {
+    return getAddress(t);
   } catch {
     return null;
   }
 }
 
-/** True if `text` is a valid EVM address (checksum-aware). */
-function isValidAddress(text) {
-  return normalizeAddress(text) !== null;
+/** True if `text` is a valid address for the active chain. */
+function isValidAddress(text, chain = currentChain()) {
+  return normalizeAddress(text, chain) !== null;
 }
 
 function isValidEmail(text) {
@@ -54,6 +75,16 @@ async function promptUseWallet(ctx) {
 
 async function promptWallet(ctx) {
   ctx.session.flow = { name: 'wallet', step: 'awaiting_address' };
+  // On Stellar the user brings their own account — we don't create custodial
+  // Stellar wallets (Privy wallets are EVM), so no "create for me" option.
+  if (isStellarChain()) {
+    await ctx.reply(
+      'Where should we send your USDC?\n\n' +
+        'Paste your Stellar wallet address (G…). It must already hold a USDC trustline, ' +
+        'otherwise the transfer can’t land.'
+    );
+    return;
+  }
   await ctx.reply(
     'Where should we send your USDC?\n\n' +
       'Paste an EVM wallet address (0x…), or tap below and I’ll create one for you using your email.',
@@ -65,9 +96,10 @@ async function promptWallet(ctx) {
 async function handleAddress(ctx, deps = {}) {
   const addr = normalizeAddress(ctx.message.text);
   if (!addr) {
-    await ctx.reply(
-      "That doesn't look like a valid wallet address (0x + 40 hex characters, correct checksum). Try again, or /wallet_new."
-    );
+    const hint = isStellarChain()
+      ? "That doesn't look like a valid Stellar address (starts with G, 56 characters). Please paste your Stellar wallet address."
+      : "That doesn't look like a valid wallet address (0x + 40 hex characters, correct checksum). Try again, or /wallet_new.";
+    await ctx.reply(hint);
     return;
   }
   ctx.session.walletAddress = addr; // stored EIP-55 checksummed
@@ -78,6 +110,11 @@ async function handleAddress(ctx, deps = {}) {
 
 /** /wallet_new — begin email-based Privy wallet creation. */
 async function startWalletCreation(ctx, deps = {}) {
+  if (isStellarChain()) {
+    // No custodial Stellar wallet creation — Privy wallets are EVM.
+    await ctx.reply('Please paste your own Stellar address (G…) that holds a USDC trustline.');
+    return;
+  }
   if (ctx.session.walletAddress) {
     await ctx.reply(`You already have a wallet:\n${ctx.session.walletAddress}`);
     return;

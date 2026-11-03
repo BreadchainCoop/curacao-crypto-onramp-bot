@@ -112,6 +112,14 @@ function escrowFromEnv(env = process.env) {
   const { activeChain } = require('@kambiox/chains');
   const chain = activeChain(env);
 
+  // Stellar is not an EVM chain: it has its own release service (Soroban invoke
+  // signed by the owner keypair), with the same release/refund/balance interface.
+  // ESCROW_SIGNER does not apply — custody is the owner secret.
+  if (chain.stellar) {
+    const { stellarEscrowFromChain } = require('./stellarEscrow');
+    return stellarEscrowFromChain(chain);
+  }
+
   const mode = (env.ESCROW_SIGNER || (chain.privateKey ? 'raw' : 'privy')).toLowerCase();
 
   let signer;
