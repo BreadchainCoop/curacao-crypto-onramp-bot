@@ -6,10 +6,13 @@ stellar-sdk pieces used by `trustline.html`. It is committed because the landing
 site is a no-build static site and the kit's transitive deps don't load cleanly
 from a CDN in a plain `<script type="module">`.
 
+Versions are pinned to match what **CoopStable** (`BreadchainCoop/coopstable-client`)
+ships in its lockfile: `@creit.tech/stellar-wallets-kit@1.9.5` + `@stellar/stellar-sdk@14.4.2`.
+
 ## Rebuild
 ```bash
 mkdir wkbuild && cd wkbuild && npm init -y
-npm i @creit.tech/stellar-wallets-kit@1.7.3 @stellar/stellar-sdk@13.3.0 \
+npm i @creit.tech/stellar-wallets-kit@1.9.5 @stellar/stellar-sdk@14.4.2 \
       esbuild @esbuild-plugins/node-globals-polyfill @esbuild-plugins/node-modules-polyfill
 # entry.mjs: re-export StellarWalletsKit, WalletNetwork, allowAllModules,
 #   FREIGHTER_ID, XBULL_ID, ALBEDO_ID, RABET_ID, LOBSTR_ID, HANA_ID (kit)
