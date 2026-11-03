@@ -142,12 +142,16 @@ function createSentooWebhookRouter({
         const payoutWallet = order.payoutWallet || order.user.walletAddress;
         const txHash = await escrow.release(payoutWallet, order.amountUsdc);
         await orders.tryTransition(order.id, ORDER_STATUS.RELEASING, ORDER_STATUS.COMPLETE);
+        // explorerTxBase may be a function (recipient) -> base, so a Stellar
+        // payout links to StellarExpert and an EVM payout to the EVM explorer.
+        const txBase =
+          typeof explorerTxBase === 'function' ? explorerTxBase(payoutWallet) : explorerTxBase;
         await safeNotify(
           notifier,
           logger,
           order.user.telegramId,
           ORDER_STATUS.COMPLETE,
-          { amountUsdc: order.amountUsdc, txHash, txUrl: `${explorerTxBase}${txHash}` },
+          { amountUsdc: order.amountUsdc, txHash, txUrl: `${txBase}${txHash}` },
           BUY_AGAIN_KEYBOARD
         );
         logger.info(`[sentoo] order ${order.id} complete tx=${txHash}`);
