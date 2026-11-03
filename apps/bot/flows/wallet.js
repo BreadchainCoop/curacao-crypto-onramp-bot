@@ -116,15 +116,27 @@ async function handleAddress(ctx, deps = {}) {
       trusts = true;
     }
     if (!trusts) {
-      const issuer = deps.trustline.issuer;
-      const link = deps.trustlineUrl ? `\n\n👉 Add it here: ${deps.trustlineUrl}` : '';
-      await ctx.reply(
-        'That wallet can’t receive USDC yet — it needs a trustline to ' +
-          `USDC issued by Circle on testnet:\n<code>${issuer}</code>` +
-          link +
-          '\n\nAdd the trustline, then paste your address again.',
-        { parse_mode: 'HTML' }
-      );
+      if (deps.trustlineUrl) {
+        // Give a tappable button, not a raw URL — and don't print the issuer
+        // address, which users mistake for their own wallet address to paste.
+        await ctx.reply(
+          'Your wallet can’t receive USDC yet.\n\n' +
+            'It needs a one-time USDC trustline (free). Tap the button below to ' +
+            'add it in your wallet, then come back and paste your wallet address again.',
+          { reply_markup: kb.trustline(deps.trustlineUrl) }
+        );
+      } else {
+        // No hosted page configured — fall back to the manual issuer details,
+        // clearly labelled so it isn’t confused with the user’s own address.
+        await ctx.reply(
+          'Your wallet can’t receive USDC yet — it needs a one-time USDC trustline.\n\n' +
+            'In your wallet, add a custom asset with code USDC and this Circle ' +
+            'testnet issuer address (this is the token’s issuer, not your wallet):\n' +
+            `<code>${deps.trustline.issuer}</code>\n\n` +
+            'Then come back and paste your wallet address again.',
+          { parse_mode: 'HTML' }
+        );
+      }
       return;
     }
   }

@@ -49,6 +49,12 @@ function pay(url) {
   return { inline_keyboard: [[{ text: '💳 Pay now', url }]] };
 }
 
+/** A URL button that opens the add-trustline page (Stellar). Emoji-free to
+ *  match the Stellar bot's copy. */
+function trustline(url) {
+  return { inline_keyboard: [[{ text: 'Add USDC trustline', url }]] };
+}
+
 /** Offer to auto-create a wallet (Privy) instead of pasting an address. */
 function createWallet() {
   return { inline_keyboard: [[{ text: '✨ Create a wallet for me', callback_data: 'create_wallet' }]] };
@@ -77,4 +83,4 @@ function refundConfirmCancel() {
   };
 }
 
-module.exports = { buy, menu, adminMenu, confirmCancel, pay, createWallet, useOrChangeWallet, refundConfirmCancel };
+module.exports = { buy, menu, adminMenu, confirmCancel, pay, trustline, createWallet, useOrChangeWallet, refundConfirmCancel };
