@@ -190,10 +190,19 @@ function routingEscrowFromEnv(env = process.env) {
 
   let stellar = null;
   if (env.STELLAR_OPERATOR_SECRET) {
-    const { activeChain } = require('@kambiox/chains');
-    const stellarChain = activeChain({ ...env, CHAIN: env.STELLAR_CHAIN || 'stellar-testnet' });
-    const { stellarEscrowFromChain } = require('./stellarEscrow');
-    stellar = stellarEscrowFromChain(stellarChain);
+    try {
+      const { activeChain } = require('@kambiox/chains');
+      const stellarChain = activeChain({ ...env, CHAIN: env.STELLAR_CHAIN || 'stellar-testnet' });
+      const { stellarEscrowFromChain } = require('./stellarEscrow');
+      stellar = stellarEscrowFromChain(stellarChain);
+    } catch (err) {
+      // A malformed secret / bad Stellar config must NEVER take down the whole
+      // backend (which would also stop EVM/Base releases). Leave Stellar
+      // unconfigured — a Stellar payout then fails cleanly, per order, while the
+      // EVM path keeps working.
+      console.error(`[escrow] Stellar escrow NOT configured (releases to G… will fail): ${err.message}`);
+      stellar = null;
+    }
   }
 
   return createRoutingEscrowService({ evm, stellar });
