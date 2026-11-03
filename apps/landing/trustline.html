@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Add USDC trustline — KambioX</title>
+<style>
+  :root { color-scheme: light; --ink:#13201a; --muted:#5b6b62; --line:#dfe7e1; --bg:#f3f6f3; --card:#fff; --green:#2f7d4f; --green-d:#255f3d; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial; }
+  .wrap { max-width:560px; margin:0 auto; padding:40px 16px 64px; }
+  h1 { font-size:1.6rem; margin:0 0 6px; }
+  p.sub { color:var(--muted); margin:0 0 24px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px; margin:16px 0; }
+  .asset-row { display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--line); }
+  .asset-row:last-child { border-bottom:0; }
+  .asset-row .k { color:var(--muted); }
+  .asset-row .v { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.86rem; text-align:right; word-break:break-all; }
+  button { font:inherit; font-weight:600; cursor:pointer; border:0; border-radius:10px; padding:13px 18px; width:100%; }
+  .primary { background:var(--green); color:#fff; }
+  .primary:hover { background:var(--green-d); }
+  .primary:disabled { opacity:.55; cursor:default; }
+  .ghost { background:transparent; color:var(--green-d); border:1px solid var(--line); margin-top:8px; }
+  .status { margin-top:14px; padding:12px 14px; border-radius:10px; font-size:.92rem; display:none; }
+  .status.show { display:block; }
+  .status.ok { background:#e7f5ec; color:var(--green-d); }
+  .status.err { background:#fdecec; color:#9a2a2a; }
+  .status.info { background:#eef3f7; color:#2a4a66; }
+  a { color:var(--green-d); }
+  .muted { color:var(--muted); font-size:.88rem; }
+  code { background:#eef3ee; padding:1px 5px; border-radius:5px; font-size:.85em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Add the USDC trustline</h1>
+  <p class="sub">Your Stellar wallet needs to trust <strong>Circle’s testnet USDC</strong> before it can receive USDC from KambioX. This is a one-time, free step.</p>
+
+  <div class="card">
+    <div class="asset-row"><span class="k">Asset</span><span class="v">USDC</span></div>
+    <div class="asset-row"><span class="k">Issuer (Circle, testnet)</span><span class="v" id="issuer">GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5</span></div>
+    <div class="asset-row"><span class="k">Network</span><span class="v">Testnet</span></div>
+  </div>
+
+  <button class="primary" id="add">Connect Freighter &amp; add trustline</button>
+  <button class="ghost" id="copy">Copy issuer address</button>
+  <div class="status" id="status"></div>
+
+  <p class="muted" style="margin-top:22px">
+    No Freighter? You can add this trustline in any Stellar wallet (Freighter, Lobstr, …) by adding a
+    custom asset with code <code>USDC</code> and the issuer above, on <strong>testnet</strong>. Then return
+    to the bot and paste your address again.
+  </p>
+</div>
+
+<script type="module">
+  import StellarSdk from 'https://esm.sh/@stellar/stellar-sdk@13.3.0';
+  import freighterApi from 'https://esm.sh/@stellar/freighter-api@3.1.0';
+
+  const ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
+  const HORIZON = 'https://horizon-testnet.stellar.org';
+  const addBtn = document.getElementById('add');
+  const copyBtn = document.getElementById('copy');
+  const statusEl = document.getElementById('status');
+
+  function show(kind, html) {
+    statusEl.className = 'status show ' + kind;
+    statusEl.innerHTML = html;
+  }
+
+  copyBtn.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(ISSUER); show('info', 'Issuer address copied.'); }
+    catch { show('info', 'Copy failed — select the issuer above manually.'); }
+  });
+
+  addBtn.addEventListener('click', async () => {
+    addBtn.disabled = true;
+    try {
+      const conn = await freighterApi.isConnected();
+      if (!(conn === true || (conn && conn.isConnected))) {
+        show('err', 'Freighter was not detected. Install the Freighter extension, or add the trustline manually (details below).');
+        addBtn.disabled = false; return;
+      }
+      show('info', 'Requesting wallet access…');
+      const access = await freighterApi.requestAccess();
+      if (access && access.error) throw new Error(String(access.error));
+      const address = typeof access === 'string' ? access : (access && access.address);
+      if (!address) throw new Error('No wallet address returned from Freighter.');
+
+      show('info', 'Building the trustline transaction…');
+      const server = new StellarSdk.Horizon.Server(HORIZON);
+      const account = await server.loadAccount(address);
+      const asset = new StellarSdk.Asset('USDC', ISSUER);
+
+      // Already trusts it?
+      if (account.balances.some((b) => b.asset_code === 'USDC' && b.asset_issuer === ISSUER)) {
+        show('ok', '✅ This wallet already trusts Circle’s testnet USDC. You’re all set — return to the bot and paste your address.');
+        addBtn.disabled = false; return;
+      }
+
+      const tx = new StellarSdk.TransactionBuilder(account, {
+        fee: StellarSdk.BASE_FEE,
+        networkPassphrase: StellarSdk.Networks.TESTNET,
+      }).addOperation(StellarSdk.Operation.changeTrust({ asset })).setTimeout(180).build();
+
+      show('info', 'Approve the transaction in Freighter…');
+      const signed = await signTransaction(tx.toXDR(), {
+        networkPassphrase: StellarSdk.Networks.TESTNET,
+        address,
+      });
+      const signedXdr = typeof signed === 'string' ? signed : (signed && (signed.signedTxXdr || signed.signedTXDR));
+      if (!signedXdr) throw new Error('Signing was cancelled or returned nothing.');
+
+      show('info', 'Submitting…');
+      const signedTx = StellarSdk.TransactionBuilder.fromXDR(signedXdr, StellarSdk.Networks.TESTNET);
+      await server.submitTransaction(signedTx);
+
+      show('ok', '✅ Trustline added! Return to the bot and paste your Stellar address again — your USDC can now land.');
+    } catch (e) {
+      const msg = (e && e.message) || String(e);
+      show('err', 'Could not add the trustline automatically: ' + msg + '<br><br>You can still add it manually with the asset details below.');
+    } finally {
+      addBtn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

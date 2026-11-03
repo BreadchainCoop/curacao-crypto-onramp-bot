@@ -102,7 +102,34 @@ async function handleAddress(ctx, deps = {}) {
     await ctx.reply(hint);
     return;
   }
-  ctx.session.walletAddress = addr; // stored EIP-55 checksummed
+  // Stellar: the wallet must trust the exact USDC we pay out (Circle testnet
+  // issuer), or the release reverts AFTER payment. Check now and, if missing,
+  // point the user to add the trustline instead of saving a dead-end wallet.
+  if (deps.trustline) {
+    let trusts;
+    try {
+      trusts = await deps.trustline.hasTrustline(addr);
+    } catch (err) {
+      // Don't hard-block on a Horizon hiccup — the backend release still guards
+      // delivery; just log and let them proceed.
+      console.error('trustline check failed:', err.message);
+      trusts = true;
+    }
+    if (!trusts) {
+      const issuer = deps.trustline.issuer;
+      const link = deps.trustlineUrl ? `\n\n👉 Add it here: ${deps.trustlineUrl}` : '';
+      await ctx.reply(
+        'That wallet can’t receive USDC yet — it needs a trustline to ' +
+          `USDC issued by Circle on testnet:\n<code>${issuer}</code>` +
+          link +
+          '\n\nAdd the trustline, then paste your address again.',
+        { parse_mode: 'HTML' }
+      );
+      return;
+    }
+  }
+
+  ctx.session.walletAddress = addr; // EIP-55 (EVM) or StrKey G… (Stellar)
   ctx.session.flow = null;
   await persistWallet(ctx, deps, addr);
   await ctx.reply(`✅ Wallet saved:\n${addr}\n\nReady when you are 👇`, { reply_markup: kb.buy() });
