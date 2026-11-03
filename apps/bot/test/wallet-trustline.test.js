@@ -36,7 +36,8 @@ test('wallet with NO USDC trustline is rejected with an inline button, not saved
   // The link is a tappable button, not a raw URL in the text…
   assert.ok(!text.includes(LINK), 'URL should be in the button, not the message text');
   const btn = extra.reply_markup.inline_keyboard[0][0];
-  assert.equal(btn.url, LINK);
+  // Opened as a Telegram Mini App so the page can close back to the chat.
+  assert.equal(btn.web_app.url, LINK);
   assert.match(btn.text, /trustline/i);
   // …and the issuer address must NOT appear (users mistake it for their own).
   assert.ok(!text.includes(ISSUER), 'issuer address must not be shown as pasteable text');
