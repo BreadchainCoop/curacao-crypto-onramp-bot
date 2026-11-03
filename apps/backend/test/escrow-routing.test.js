@@ -5,8 +5,17 @@ const assert = require('node:assert/strict');
 
 const {
   createRoutingEscrowService,
+  routingEscrowFromEnv,
   looksLikeStellarAddress,
 } = require('../services/escrow');
+
+// A complete-enough EVM env so the EVM escrow builds without a real key.
+const BASE_ENV = {
+  CHAIN: 'base-sepolia',
+  ESCROW_SIGNER: 'fake',
+  ESCROW_CONTRACT_ADDRESS: '0x05b9aD81666f3a245500FCFc4E0e13017BcFAcD4',
+  USDC_ADDRESS: '0x036CbD53842c5426634e7929541eC2318f3dCF7e',
+};
 
 const G_ADDRESS = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
 const EVM_ADDRESS = '0x92c7940000000000000000000000000000013da8';
@@ -77,4 +86,25 @@ test('routing: refund and balance default to the EVM escrow', async () => {
 
   assert.equal(await router.refund(5), 'evm_refund');
   assert.equal(await router.balance(), '42');
+});
+
+test('routingEscrowFromEnv with NO stellar secret builds and keeps EVM working', () => {
+  const router = routingEscrowFromEnv({ ...BASE_ENV });
+  assert.equal(typeof router.release, 'function');
+});
+
+test('routingEscrowFromEnv with a MALFORMED stellar secret does NOT crash the backend', async () => {
+  // A bad secret must be swallowed at construction — the backend still boots and
+  // the EVM/Base path still works; only Stellar payouts fail (cleanly, per order).
+  let router;
+  assert.doesNotThrow(() => {
+    router = routingEscrowFromEnv({ ...BASE_ENV, STELLAR_OPERATOR_SECRET: 'not-a-real-secret' });
+  });
+  // EVM payout still releases (fake signer).
+  assert.match(await router.release('0x92c7940000000000000000000000000000013da8', 1), /^0xfake/);
+  // Stellar payout fails cleanly instead of taking down the service.
+  await assert.rejects(
+    () => router.release('GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5', 1),
+    /STELLAR_OPERATOR_SECRET is not configured/
+  );
 });
