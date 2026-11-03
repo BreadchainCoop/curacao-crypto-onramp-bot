@@ -13,6 +13,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const { mapPaymentStatus } = require('../services/sentoo');
+const { looksLikeStellarAddress } = require('../services/escrow');
 const { ORDER_STATUS, messageForStatus } = require('../domain/orderStatus');
 
 function safeEqual(a, b) {
@@ -56,11 +57,24 @@ function createSentooWebhookRouter({
   orders,
   escrow,
   notifier,
+  // Optional second notifier for Stellar orders. The webhook server has one
+  // Telegram token, but orders come from BOTH bots (Base + Stellar); a Stellar
+  // order's receipt must come from the Stellar bot, not the Base bot. When set,
+  // notifications for a G… payout go through here; otherwise they fall back to
+  // `notifier` (so Base-only deployments are unchanged).
+  notifierStellar = null,
   webhookToken = null,
   explorerTxBase = 'https://amoy.polygonscan.com/tx/',
   logger = console,
 }) {
   const router = express.Router();
+
+  // Pick the bot to notify from for a given order: the Stellar bot for a G…
+  // payout (when a Stellar notifier is wired), else the default (Base) bot.
+  const notifierForOrder = (order) => {
+    const payout = (order && (order.payoutWallet || (order.user && order.user.walletAddress))) || '';
+    return notifierStellar && looksLikeStellarAddress(payout) ? notifierStellar : notifier;
+  };
 
   router.post('/', express.urlencoded({ extended: false }), async (req, res) => {
     // Optional shared-secret token (our own, in the webhook URL) — not a Sentoo HMAC.
@@ -102,7 +116,7 @@ function createSentooWebhookRouter({
       if (outcome === 'failed') {
         if (await orders.tryTransition(order.id, ORDER_STATUS.PENDING_PAYMENT, ORDER_STATUS.FAILED)) {
           await safeNotifyText(
-            notifier,
+            notifierForOrder(order),
             logger,
             order.user.telegramId,
             '❌ Your payment didn’t go through. Send /buy to try again.'
@@ -113,7 +127,7 @@ function createSentooWebhookRouter({
       }
       if (outcome === 'expired') {
         if (await orders.tryTransition(order.id, ORDER_STATUS.PENDING_PAYMENT, ORDER_STATUS.EXPIRED)) {
-          await safeNotify(notifier, logger, order.user.telegramId, ORDER_STATUS.EXPIRED);
+          await safeNotify(notifierForOrder(order), logger, order.user.telegramId, ORDER_STATUS.EXPIRED);
           logger.info(`[sentoo] order ${order.id} payment expired`);
         }
         return res.status(200).json({ success: true });
@@ -133,7 +147,7 @@ function createSentooWebhookRouter({
         logger.info(`[sentoo] order ${order.id} already processed (status=${order.status})`);
         return res.status(200).json({ success: true });
       }
-      await safeNotify(notifier, logger, order.user.telegramId, ORDER_STATUS.PAID);
+      await safeNotify(notifierForOrder(order), logger, order.user.telegramId, ORDER_STATUS.PAID);
 
       await orders.tryTransition(order.id, ORDER_STATUS.PAID, ORDER_STATUS.RELEASING);
       try {
@@ -147,7 +161,7 @@ function createSentooWebhookRouter({
         const txBase =
           typeof explorerTxBase === 'function' ? explorerTxBase(payoutWallet) : explorerTxBase;
         await safeNotify(
-          notifier,
+          notifierForOrder(order),
           logger,
           order.user.telegramId,
           ORDER_STATUS.COMPLETE,
@@ -157,7 +171,7 @@ function createSentooWebhookRouter({
         logger.info(`[sentoo] order ${order.id} complete tx=${txHash}`);
       } catch (releaseErr) {
         await orders.tryTransition(order.id, ORDER_STATUS.RELEASING, ORDER_STATUS.FAILED);
-        await safeNotify(notifier, logger, order.user.telegramId, ORDER_STATUS.FAILED);
+        await safeNotify(notifierForOrder(order), logger, order.user.telegramId, ORDER_STATUS.FAILED);
         logger.error(`[sentoo] release failed for order ${order.id}: ${releaseErr.message}`);
         // Operator handles failed orders (#10 refund/retry).
       }
