@@ -23,7 +23,7 @@ function makeCtx() {
   };
 }
 
-test('wallet with NO USDC trustline is rejected with the issuer + link, not saved', async () => {
+test('wallet with NO USDC trustline is rejected with an inline button, not saved', async () => {
   const ctx = makeCtx();
   await wallet.handleAddress(ctx, {
     trustline: { hasTrustline: async () => false, issuer: ISSUER },
@@ -31,9 +31,27 @@ test('wallet with NO USDC trustline is rejected with the issuer + link, not save
   });
   assert.equal(ctx.session.walletAddress, undefined, 'must not save a wallet that can’t receive');
   assert.equal(ctx.replies.length, 1);
-  assert.match(ctx.replies[0].text, /trustline/i);
-  assert.match(ctx.replies[0].text, new RegExp(ISSUER));
-  assert.match(ctx.replies[0].text, new RegExp(LINK.replace(/[.]/g, '\\.')));
+  const { text, extra } = ctx.replies[0];
+  assert.match(text, /trustline/i);
+  // The link is a tappable button, not a raw URL in the text…
+  assert.ok(!text.includes(LINK), 'URL should be in the button, not the message text');
+  const btn = extra.reply_markup.inline_keyboard[0][0];
+  assert.equal(btn.url, LINK);
+  assert.match(btn.text, /trustline/i);
+  // …and the issuer address must NOT appear (users mistake it for their own).
+  assert.ok(!text.includes(ISSUER), 'issuer address must not be shown as pasteable text');
+});
+
+test('with no hosted page, the manual issuer fallback is shown and labelled', async () => {
+  const ctx = makeCtx();
+  await wallet.handleAddress(ctx, {
+    trustline: { hasTrustline: async () => false, issuer: ISSUER },
+    // no trustlineUrl
+  });
+  assert.equal(ctx.session.walletAddress, undefined);
+  const { text } = ctx.replies[0];
+  assert.match(text, new RegExp(ISSUER));
+  assert.match(text, /issuer, not your wallet/i);
 });
 
 test('wallet WITH the trustline is saved', async () => {
