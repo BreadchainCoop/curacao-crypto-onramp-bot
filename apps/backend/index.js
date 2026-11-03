@@ -79,7 +79,7 @@ function startFromEnv() {
   const { sentooFromEnv } = require('./services/sentoo');
   const { ordersFromEnv } = require('./services/orders');
   const { routingEscrowFromEnv, looksLikeStellarAddress } = require('./services/escrow');
-  const { notifierFromEnv } = require('./services/notifier');
+  const { notifierFromEnv, createTelegramNotifier } = require('./services/notifier');
   const { usersFromEnv } = require('./services/users');
   const { activeChain } = require('@kambiox/chains');
 
@@ -89,12 +89,19 @@ function startFromEnv() {
   const stellarTxBase =
     process.env.STELLAR_EXPLORER_TX_BASE_URL || 'https://stellar.expert/explorer/testnet/tx/';
 
+  // Second notifier for Stellar orders: receipts for a G… payout must come from
+  // the Stellar bot, not the Base bot. Only wired if its token is configured.
+  const stellarNotifier = process.env.TELEGRAM_STELLAR_BOT_TOKEN
+    ? createTelegramNotifier({ botToken: process.env.TELEGRAM_STELLAR_BOT_TOKEN })
+    : null;
+
   const deps = {
     sentoo: sentooFromEnv(),
     orders: ordersFromEnv(),
     // Routes each release to Stellar (G…) or EVM (0x…) by the payout address.
     escrow: routingEscrowFromEnv(),
     notifier: notifierFromEnv(),
+    notifierStellar: stellarNotifier,
     users: usersFromEnv(),
     telegramReturnUrl: process.env.TELEGRAM_RETURN_URL || 'https://t.me/Cura_ramp_bot',
     telegramBotUsername: process.env.TELEGRAM_BOT_USERNAME || null,
