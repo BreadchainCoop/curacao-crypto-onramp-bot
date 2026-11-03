@@ -69,12 +69,20 @@ function createSentooWebhookRouter({
 }) {
   const router = express.Router();
 
+  const payoutOf = (order) =>
+    (order && (order.payoutWallet || (order.user && order.user.walletAddress))) || '';
+
   // Pick the bot to notify from for a given order: the Stellar bot for a G…
   // payout (when a Stellar notifier is wired), else the default (Base) bot.
-  const notifierForOrder = (order) => {
-    const payout = (order && (order.payoutWallet || (order.user && order.user.walletAddress))) || '';
-    return notifierStellar && looksLikeStellarAddress(payout) ? notifierStellar : notifier;
-  };
+  const notifierForOrder = (order) =>
+    notifierStellar && looksLikeStellarAddress(payoutOf(order)) ? notifierStellar : notifier;
+
+  // True for a Stellar (G…) order. The Stellar bot already shows an instant
+  // "payment received, processing" message when the user returns via the Sentoo
+  // ?start= deep link, so we skip the backend's interim "paid" notification for
+  // Stellar orders to avoid a duplicate (the final receipt still goes out). Base
+  // orders are unchanged.
+  const isStellarOrder = (order) => looksLikeStellarAddress(payoutOf(order));
 
   router.post('/', express.urlencoded({ extended: false }), async (req, res) => {
     // Optional shared-secret token (our own, in the webhook URL) — not a Sentoo HMAC.
@@ -147,7 +155,11 @@ function createSentooWebhookRouter({
         logger.info(`[sentoo] order ${order.id} already processed (status=${order.status})`);
         return res.status(200).json({ success: true });
       }
-      await safeNotify(notifierForOrder(order), logger, order.user.telegramId, ORDER_STATUS.PAID);
+      // Skip the interim "paid" ping for Stellar orders — the bot already sent
+      // it on the deep-link return (avoids the double message). Base unchanged.
+      if (!isStellarOrder(order)) {
+        await safeNotify(notifierForOrder(order), logger, order.user.telegramId, ORDER_STATUS.PAID);
+      }
 
       await orders.tryTransition(order.id, ORDER_STATUS.PAID, ORDER_STATUS.RELEASING);
       try {

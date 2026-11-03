@@ -53,21 +53,24 @@ async function postWebhook(port) {
   });
 }
 
-test('a Stellar (G…) order notifies via the STELLAR bot, not the Base bot', async () => {
+test('a Stellar (G…) order notifies via the Stellar bot — receipt only, no dup "paid"', async () => {
   const { server, port, base, stellar } = await makeServer(G_ADDRESS);
   const res = await postWebhook(port);
   assert.equal(res.status, 200);
-  // The completion receipt (and the earlier "paid" message) come from the Stellar bot.
-  assert.ok(stellar.calls.length >= 1, 'stellar notifier should be used');
+  // The interim "paid" ping is skipped for Stellar (the bot sent it on the
+  // deep-link return); only the final receipt comes from the Stellar bot.
+  assert.equal(stellar.calls.length, 1, 'only the receipt should be sent for a G… order');
+  assert.match(stellar.calls[0].text, /txhash123/);
   assert.equal(base.calls.length, 0, 'base notifier must NOT be used for a G… order');
   server.close();
 });
 
-test('an EVM (0x) order still notifies via the Base bot', async () => {
+test('an EVM (0x) order still gets both "paid" and receipt via the Base bot', async () => {
   const { server, port, base, stellar } = await makeServer(EVM_ADDRESS);
   const res = await postWebhook(port);
   assert.equal(res.status, 200);
-  assert.ok(base.calls.length >= 1, 'base notifier should be used');
+  // Base is unchanged: interim "paid" + final receipt.
+  assert.equal(base.calls.length, 2, 'base keeps both the paid ping and the receipt');
   assert.equal(stellar.calls.length, 0, 'stellar notifier must NOT be used for a 0x order');
   server.close();
 });
