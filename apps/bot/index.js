@@ -24,10 +24,10 @@ const IS_STELLAR = (() => {
 })();
 
 const WELCOME = IS_STELLAR
-  ? '👋 Welcome to KambioX — digital dollars on Stellar.\n\n' +
+  ? 'Welcome to KambioX — digital dollars on Stellar.\n\n' +
     'Buy USDC on the Stellar network with a local bank transfer (XCG) via Sentoo. ' +
     'Your USDC lands straight in your own Stellar wallet.\n\n' +
-    '⭐ Powered by Stellar\n\n' +
+    'Powered by Stellar\n\n' +
     'Tap a button below to get started.'
   : '👋 Welcome to the Curaçao Crypto On-Ramp.\n\n' +
     'Buy USDC with a local bank transfer (XCG) via Sentoo.\n\n' +
@@ -39,7 +39,7 @@ const HELP = IS_STELLAR
     '/status — show your current state\n' +
     '/cancel — cancel the current step\n' +
     '/help — show this help\n\n' +
-    '⭐ Your USDC settles on Stellar — fast and low-fee. Powered by Stellar.'
+    'Your USDC settles on Stellar — fast and low-fee. Powered by Stellar.'
   : 'Commands:\n' +
     '/buy — start a purchase (KYC + wallet required first)\n' +
     '/status — show your current state\n' +
