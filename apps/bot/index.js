@@ -236,7 +236,11 @@ function createBot(token, opts = {}) {
   bot.on('message:text', async (ctx) => {
     const flow = ctx.session.flow;
     if (flow && flow.name === 'wallet' && flow.step === 'awaiting_address') {
-      return wallet.handleAddress(ctx, { users: opts.users });
+      return wallet.handleAddress(ctx, {
+        users: opts.users,
+        trustline: opts.trustline,
+        trustlineUrl: opts.trustlineUrl,
+      });
     }
     if (flow && flow.name === 'wallet' && flow.step === 'awaiting_email') {
       return wallet.handleEmail(ctx, { privy: opts.privy, users: opts.users });
@@ -315,7 +319,23 @@ function startFromEnv() {
     console.warn('Supabase not configured — wallets are not remembered across restarts.');
   }
 
-  const bot = createBot(token, { admin, privy, requireKyc, payments, users });
+  // Stellar only: check the pasted wallet trusts the Circle testnet USDC before
+  // taking payment, and point users to a page to add the trustline if not.
+  const { trustlineCheckerFromChain } = require('./services/trustline');
+  const botChain = (() => {
+    try {
+      return activeChain();
+    } catch {
+      return {};
+    }
+  })();
+  const trustline = trustlineCheckerFromChain(botChain);
+  const trustlineUrl = process.env.TRUSTLINE_URL || null;
+  if (trustline && !trustlineUrl) {
+    console.warn('TRUSTLINE_URL not set — users get the issuer to add manually, no link.');
+  }
+
+  const bot = createBot(token, { admin, privy, requireKyc, payments, users, trustline, trustlineUrl });
   bot.start({
     onStart: (me) => console.log(`Bot @${me.username} is running.`),
   });
