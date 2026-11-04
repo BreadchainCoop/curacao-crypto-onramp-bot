@@ -53,14 +53,15 @@ async function postWebhook(port) {
   });
 }
 
-test('a Stellar (G…) order notifies via the Stellar bot — receipt only, no dup "paid"', async () => {
+test('a Stellar (G…) order notifies via the Stellar bot — interim "paid" + receipt', async () => {
   const { server, port, base, stellar } = await makeServer(G_ADDRESS);
   const res = await postWebhook(port);
   assert.equal(res.status, 200);
-  // The interim "paid" ping is skipped for Stellar (the bot sent it on the
-  // deep-link return); only the final receipt comes from the Stellar bot.
-  assert.equal(stellar.calls.length, 1, 'only the receipt should be sent for a G… order');
-  assert.match(stellar.calls[0].text, /txhash123/);
+  // The backend proactively pushes the interim "payment received" AND the final
+  // receipt via the Stellar bot — so the user sees status without tapping /start.
+  assert.equal(stellar.calls.length, 2, 'interim paid + receipt should be sent for a G… order');
+  assert.match(stellar.calls[0].text, /received/i);
+  assert.match(stellar.calls[1].text, /txhash123/);
   assert.equal(base.calls.length, 0, 'base notifier must NOT be used for a G… order');
   server.close();
 });

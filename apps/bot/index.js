@@ -46,37 +46,20 @@ const HELP = IS_STELLAR
     '/cancel — cancel the current step\n' +
     '/help — show this help';
 
-// After a Sentoo payment, the user returns via a /start <status> deep link.
-// Show a fitting message (visual only — the real result comes from the webhook).
-// Message shown when the user returns from Sentoo via the /start <status> deep
-// link. Returns null for anything that isn't a payment-return status, so a
-// genuine /start still shows the welcome menu.
-const FAILED_STATUSES = new Set(['failed', 'rejected', 'cancelled', 'canceled']);
-
+// After a Sentoo payment the user returns to this chat (often via a
+// /start <status> deep link). The BACKEND is the single source of truth for
+// payment status: on the Sentoo webhook it proactively pushes "payment received
+// — releasing…" and then the receipt (or a failure) to this chat, with no user
+// action required. So the /start handler must NOT claim a payment outcome of its
+// own — that was the old double-message. For any payment-return payload we show
+// a neutral welcome-back; a genuine /start (no payload) shows the welcome menu.
 function startPayloadMessage(payload) {
-  const s = String(payload || '').trim().toLowerCase();
+  const s = String(payload || '').trim();
   if (!s) return null; // genuine /start (no deep-link payload) → welcome menu
-  switch (s) {
-    case 'success':
-    case 'paid':
-    case 'complete':
-    case 'completed':
-    case 'done':
-    case 'ok':
-      return "✅ Payment received! We're processing it and releasing your USDC now — your receipt will land here in a moment.";
-    case 'pending':
-    case 'issued':
-      return '⏳ Payment is being processed — waiting for your bank to confirm. You’ll get an update here the moment it clears.';
-    case 'failed':
-    case 'rejected':
-    case 'cancelled':
-    case 'canceled':
-      return "❌ That payment didn't complete — no charge was made.";
-    default:
-      // Any other non-empty payload still means a return from Sentoo, not a
-      // fresh start — show a processing message rather than the welcome menu.
-      return "⏳ Thanks — we're processing your payment. You'll get a confirmation and receipt here shortly.";
-  }
+  return (
+    '👋 Welcome back! We’re confirming your payment — your status and receipt ' +
+    'will appear here automatically in a moment. No need to do anything.'
+  );
 }
 
 function renderStatus(s) {
@@ -124,10 +107,7 @@ function createBot(token, opts = {}) {
     const payload = String(ctx.match || '').trim();
     if (payload) console.log(`[start] deep-link payload: ${JSON.stringify(payload)}`);
     const statusMsg = startPayloadMessage(payload);
-    if (statusMsg) {
-      const failed = FAILED_STATUSES.has(payload.toLowerCase());
-      return ctx.reply(statusMsg, failed ? { reply_markup: kb.buy() } : undefined);
-    }
+    if (statusMsg) return ctx.reply(statusMsg);
     return ctx.reply(WELCOME, { reply_markup: menuFor(ctx) });
   });
   bot.command('help', (ctx) => ctx.reply(HELP, { reply_markup: menuFor(ctx) }));
