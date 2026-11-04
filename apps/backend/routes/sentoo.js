@@ -77,13 +77,6 @@ function createSentooWebhookRouter({
   const notifierForOrder = (order) =>
     notifierStellar && looksLikeStellarAddress(payoutOf(order)) ? notifierStellar : notifier;
 
-  // True for a Stellar (G…) order. The Stellar bot already shows an instant
-  // "payment received, processing" message when the user returns via the Sentoo
-  // ?start= deep link, so we skip the backend's interim "paid" notification for
-  // Stellar orders to avoid a duplicate (the final receipt still goes out). Base
-  // orders are unchanged.
-  const isStellarOrder = (order) => looksLikeStellarAddress(payoutOf(order));
-
   router.post('/', express.urlencoded({ extended: false }), async (req, res) => {
     // Optional shared-secret token (our own, in the webhook URL) — not a Sentoo HMAC.
     if (webhookToken && !safeEqual(req.query.token ?? '', webhookToken)) {
@@ -155,11 +148,11 @@ function createSentooWebhookRouter({
         logger.info(`[sentoo] order ${order.id} already processed (status=${order.status})`);
         return res.status(200).json({ success: true });
       }
-      // Skip the interim "paid" ping for Stellar orders — the bot already sent
-      // it on the deep-link return (avoids the double message). Base unchanged.
-      if (!isStellarOrder(order)) {
-        await safeNotify(notifierForOrder(order), logger, order.user.telegramId, ORDER_STATUS.PAID);
-      }
+      // Push the interim "payment received — releasing…" the instant payment is
+      // confirmed, proactively, so the user sees status on return without having
+      // to tap /start. Same for Base and Stellar: the bot's /start handler no
+      // longer claims a payment outcome, so there is no duplicate.
+      await safeNotify(notifierForOrder(order), logger, order.user.telegramId, ORDER_STATUS.PAID);
 
       await orders.tryTransition(order.id, ORDER_STATUS.PAID, ORDER_STATUS.RELEASING);
       try {
