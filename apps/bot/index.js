@@ -11,50 +11,55 @@ const buy = require('./flows/buy');
 const kb = require('./lib/keyboards');
 const { createRateLimiter } = require('./lib/rateLimit');
 const { createAdminHandlers } = require('./flows/admin');
+const { activeChain } = require('@kambiox/chains');
 
-const WELCOME =
-  '👋 Welcome to the Curaçao Crypto On-Ramp.\n\n' +
-  'Buy USDC with a local bank transfer (XCG) via Sentoo.\n\n' +
-  'Tap a button below to get started.';
-
-const HELP =
-  'Commands:\n' +
-  '/buy — start a purchase (KYC + wallet required first)\n' +
-  '/status — show your current state\n' +
-  '/cancel — cancel the current step\n' +
-  '/help — show this help';
-
-// After a Sentoo payment, the user returns via a /start <status> deep link.
-// Show a fitting message (visual only — the real result comes from the webhook).
-// Message shown when the user returns from Sentoo via the /start <status> deep
-// link. Returns null for anything that isn't a payment-return status, so a
-// genuine /start still shows the welcome menu.
-const FAILED_STATUSES = new Set(['failed', 'rejected', 'cancelled', 'canceled']);
-
-function startPayloadMessage(payload) {
-  const s = String(payload || '').trim().toLowerCase();
-  if (!s) return null; // genuine /start (no deep-link payload) → welcome menu
-  switch (s) {
-    case 'success':
-    case 'paid':
-    case 'complete':
-    case 'completed':
-    case 'done':
-    case 'ok':
-      return "✅ Payment received! We're processing it and releasing your USDC now — your receipt will land here in a moment.";
-    case 'pending':
-    case 'issued':
-      return '⏳ Payment is being processed — waiting for your bank to confirm. You’ll get an update here the moment it clears.';
-    case 'failed':
-    case 'rejected':
-    case 'cancelled':
-    case 'canceled':
-      return "❌ That payment didn't complete — no charge was made.";
-    default:
-      // Any other non-empty payload still means a return from Sentoo, not a
-      // fresh start — show a processing message rather than the welcome menu.
-      return "⏳ Thanks — we're processing your payment. You'll get a confirmation and receipt here shortly.";
+// Stellar bot (CHAIN=stellar-testnet) gets its own branding; the EVM/Base bot
+// keeps the original copy. Resolved once at load (CHAIN is fixed per process).
+const IS_STELLAR = (() => {
+  try {
+    return !!activeChain().stellar;
+  } catch {
+    return false;
   }
+})();
+
+const WELCOME = IS_STELLAR
+  ? 'Welcome to KambioX — digital dollars on Stellar.\n\n' +
+    'Buy USDC on the Stellar network with a local bank transfer (XCG) via Sentoo. ' +
+    'Your USDC lands straight in your own Stellar wallet.\n\n' +
+    'Powered by Stellar\n\n' +
+    'Tap a button below to get started.'
+  : '👋 Welcome to the Curaçao Crypto On-Ramp.\n\n' +
+    'Buy USDC with a local bank transfer (XCG) via Sentoo.\n\n' +
+    'Tap a button below to get started.';
+
+const HELP = IS_STELLAR
+  ? 'Commands:\n' +
+    '/buy — start a purchase (you’ll share your Stellar wallet address)\n' +
+    '/status — show your current state\n' +
+    '/cancel — cancel the current step\n' +
+    '/help — show this help\n\n' +
+    'Your USDC settles on Stellar — fast and low-fee. Powered by Stellar.'
+  : 'Commands:\n' +
+    '/buy — start a purchase (KYC + wallet required first)\n' +
+    '/status — show your current state\n' +
+    '/cancel — cancel the current step\n' +
+    '/help — show this help';
+
+// After a Sentoo payment the user returns to this chat (often via a
+// /start <status> deep link). The BACKEND is the single source of truth for
+// payment status: on the Sentoo webhook it proactively pushes "payment received
+// — releasing…" and then the receipt (or a failure) to this chat, with no user
+// action required. So the /start handler must NOT claim a payment outcome of its
+// own — that was the old double-message. For any payment-return payload we show
+// a neutral welcome-back; a genuine /start (no payload) shows the welcome menu.
+function startPayloadMessage(payload) {
+  const s = String(payload || '').trim();
+  if (!s) return null; // genuine /start (no deep-link payload) → welcome menu
+  return (
+    '👋 Welcome back! We’re confirming your payment — your status and receipt ' +
+    'will appear here automatically in a moment. No need to do anything.'
+  );
 }
 
 function renderStatus(s) {
@@ -102,10 +107,7 @@ function createBot(token, opts = {}) {
     const payload = String(ctx.match || '').trim();
     if (payload) console.log(`[start] deep-link payload: ${JSON.stringify(payload)}`);
     const statusMsg = startPayloadMessage(payload);
-    if (statusMsg) {
-      const failed = FAILED_STATUSES.has(payload.toLowerCase());
-      return ctx.reply(statusMsg, failed ? { reply_markup: kb.buy() } : undefined);
-    }
+    if (statusMsg) return ctx.reply(statusMsg);
     return ctx.reply(WELCOME, { reply_markup: menuFor(ctx) });
   });
   bot.command('help', (ctx) => ctx.reply(HELP, { reply_markup: menuFor(ctx) }));
@@ -214,7 +216,11 @@ function createBot(token, opts = {}) {
   bot.on('message:text', async (ctx) => {
     const flow = ctx.session.flow;
     if (flow && flow.name === 'wallet' && flow.step === 'awaiting_address') {
-      return wallet.handleAddress(ctx, { users: opts.users });
+      return wallet.handleAddress(ctx, {
+        users: opts.users,
+        trustline: opts.trustline,
+        trustlineUrl: opts.trustlineUrl,
+      });
     }
     if (flow && flow.name === 'wallet' && flow.step === 'awaiting_email') {
       return wallet.handleEmail(ctx, { privy: opts.privy, users: opts.users });
@@ -293,7 +299,23 @@ function startFromEnv() {
     console.warn('Supabase not configured — wallets are not remembered across restarts.');
   }
 
-  const bot = createBot(token, { admin, privy, requireKyc, payments, users });
+  // Stellar only: check the pasted wallet trusts the Circle testnet USDC before
+  // taking payment, and point users to a page to add the trustline if not.
+  const { trustlineCheckerFromChain } = require('./services/trustline');
+  const botChain = (() => {
+    try {
+      return activeChain();
+    } catch {
+      return {};
+    }
+  })();
+  const trustline = trustlineCheckerFromChain(botChain);
+  const trustlineUrl = process.env.TRUSTLINE_URL || null;
+  if (trustline && !trustlineUrl) {
+    console.warn('TRUSTLINE_URL not set — users get the issuer to add manually, no link.');
+  }
+
+  const bot = createBot(token, { admin, privy, requireKyc, payments, users, trustline, trustlineUrl });
   bot.start({
     onStart: (me) => console.log(`Bot @${me.username} is running.`),
   });

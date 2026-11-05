@@ -49,6 +49,13 @@ function pay(url) {
   return { inline_keyboard: [[{ text: '💳 Pay now', url }]] };
 }
 
+/** Opens the add-trustline page as a Telegram Mini App (web_app), so the page
+ *  can call Telegram.WebApp.close() and drop the user back in the chat once the
+ *  trustline is added. Emoji-free to match the Stellar bot's copy. */
+function trustline(url) {
+  return { inline_keyboard: [[{ text: 'Add USDC trustline', web_app: { url } }]] };
+}
+
 /** Offer to auto-create a wallet (Privy) instead of pasting an address. */
 function createWallet() {
   return { inline_keyboard: [[{ text: '✨ Create a wallet for me', callback_data: 'create_wallet' }]] };
@@ -77,4 +84,4 @@ function refundConfirmCancel() {
   };
 }
 
-module.exports = { buy, menu, adminMenu, confirmCancel, pay, createWallet, useOrChangeWallet, refundConfirmCancel };
+module.exports = { buy, menu, adminMenu, confirmCancel, pay, trustline, createWallet, useOrChangeWallet, refundConfirmCancel };

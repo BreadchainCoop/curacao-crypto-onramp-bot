@@ -58,6 +58,27 @@ const CHAINS = {
     mainnet: true,
     knownUsdc: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', // canonical Base USDC
   },
+  // ── Stellar (Soroban) — NOT an EVM chain. The escrow is the KambioEscrow
+  // Soroban contract (C...), addresses are StrKey (G.../C...), USDC has 7
+  // decimals, and the owner keypair signs releases. Resolved into a distinctly
+  // SHAPED object below (no chainId/rpcUrl/escrowAddress), so EVM code paths
+  // that read those fields never accidentally treat Stellar as EVM. ──
+  'stellar-testnet': {
+    name: 'Stellar testnet',
+    stellar: true,
+    nativeSymbol: 'XLM',
+    explorer: 'https://stellar.expert/explorer/testnet',
+    sorobanRpc: 'https://soroban-testnet.stellar.org',
+    horizonUrl: 'https://horizon-testnet.stellar.org',
+    networkPassphrase: 'Test SDF Network ; September 2015',
+    usdcDecimals: 7, // Stellar USDC is 7-decimal (EVM USDC is 6)
+    // Deployed KambioEscrow v0.2.0 + the Circle testnet USDC SAC it is bound to.
+    // Baked in (like mainnet knownUsdc) so a stray env var can't shadow them;
+    // still overridable per-chain for a redeploy (STELLAR_TESTNET_ESCROW_CONTRACT_ID).
+    knownContractId: 'CCA2WYNWADCEH5ZZ36D7II5OCVZL3HTMIKDTOC74HEVHHJZONNT2AXR5',
+    knownUsdcSac: 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA',
+    usdcIssuer: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
+  },
 };
 
 const DEFAULT_CHAIN = 'polygon-amoy';
@@ -76,6 +97,31 @@ function activeChain(env = process.env) {
   if (!base) {
     throw new Error(`Unknown CHAIN "${key}". Options: ${Object.keys(CHAINS).join(', ')}`);
   }
+  // Stellar is a different custody/signing model (Soroban, StrKey, 7-dec USDC,
+  // owner keypair). Return a distinctly shaped object — no chainId/rpcUrl/
+  // escrowAddress — so EVM code can't mistake it for an EVM chain.
+  if (base.stellar) {
+    return {
+      key,
+      name: base.name,
+      stellar: true,
+      mainnet: !!base.mainnet,
+      nativeSymbol: base.nativeSymbol,
+      explorer: base.explorer,
+      sorobanRpc: env[`${envKey(key)}_SOROBAN_RPC`] || base.sorobanRpc,
+      horizonUrl: env[`${envKey(key)}_HORIZON_URL`] || base.horizonUrl,
+      networkPassphrase: base.networkPassphrase,
+      usdcDecimals: base.usdcDecimals,
+      // Per-deploy overrides win; otherwise the baked-in known values.
+      contractId: env[`${envKey(key)}_ESCROW_CONTRACT_ID`] || base.knownContractId,
+      usdcSac: env[`${envKey(key)}_USDC_SAC`] || base.knownUsdcSac,
+      usdcIssuer: base.usdcIssuer,
+      // The escrow owner's secret (S...). Treated like ADMIN_WALLET_PRIVATE_KEY:
+      // testnet-only, provided via env, never committed.
+      operatorSecret: env.STELLAR_OPERATOR_SECRET,
+    };
+  }
+
   const perChainEscrow = env[`${envKey(key)}_ESCROW_ADDRESS`];
   const perChainUsdc = env[`${envKey(key)}_USDC_ADDRESS`];
 
@@ -108,8 +154,14 @@ function activeChain(env = process.env) {
   };
 }
 
-/** Explorer URL for the escrow on the active chain (or null if unknown). */
+/** Explorer URL for the escrow on the active chain (or null if unknown).
+ *  Stellar explorers use /contract/<C...>; EVM explorers use /address/<0x...>. */
 function escrowUrl(chain) {
+  if (chain.stellar) {
+    return chain.explorer && chain.contractId
+      ? `${chain.explorer}/contract/${chain.contractId}`
+      : null;
+  }
   return chain.explorer && chain.escrowAddress
     ? `${chain.explorer}/address/${chain.escrowAddress}`
     : null;
