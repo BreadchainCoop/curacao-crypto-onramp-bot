@@ -112,6 +112,14 @@ function escrowFromEnv(env = process.env) {
   const { activeChain } = require('@kambiox/chains');
   const chain = activeChain(env);
 
+  // Stellar is not an EVM chain: it has its own release service (Soroban invoke
+  // signed by the owner keypair), with the same release/refund/balance interface.
+  // ESCROW_SIGNER does not apply — custody is the owner secret.
+  if (chain.stellar) {
+    const { stellarEscrowFromChain } = require('./stellarEscrow');
+    return stellarEscrowFromChain(chain);
+  }
+
   const mode = (env.ESCROW_SIGNER || (chain.privateKey ? 'raw' : 'privy')).toLowerCase();
 
   let signer;
@@ -132,10 +140,81 @@ function escrowFromEnv(env = process.env) {
   return createEscrowService({ contractAddress: chain.escrowAddress, signer, rpcUrl: chain.rpcUrl });
 }
 
+/** Loose check: does this payout recipient look like a Stellar account (G…)?
+ *  Used only to ROUTE a release to the right chain — the address was fully
+ *  validated when the order was created. */
+function looksLikeStellarAddress(recipient) {
+  return typeof recipient === 'string' && /^G[A-Z2-7]{55}$/.test(recipient.trim());
+}
+
+/**
+ * Multi-chain release router for the SHARED backend. One Sentoo webhook serves
+ * orders from both the EVM bot and the Stellar bot, so the release target is
+ * chosen PER ORDER by the payout address:
+ *   G… (Stellar account)  -> the Soroban escrow (stellarEscrow)
+ *   0x… (EVM address)     -> the configured EVM escrow (escrowFromEnv / CHAIN)
+ * so Base orders keep releasing on Base and Stellar orders release on Stellar.
+ *
+ * The EVM escrow is built from CHAIN (base-sepolia on the shared backend). The
+ * Stellar escrow is built only when STELLAR_OPERATOR_SECRET is set; a Stellar
+ * payout with no Stellar signer configured fails loudly rather than mis-routing
+ * to the EVM escrow. Exposes the same { release, refund, balance } interface.
+ */
+/** Route releases between an EVM escrow and a Stellar escrow by payout address.
+ *  Takes the two services so it is trivially unit-testable with fakes. */
+function createRoutingEscrowService({ evm, stellar }) {
+  return {
+    async release(recipient, amountUsdc) {
+      if (looksLikeStellarAddress(recipient)) {
+        if (!stellar) {
+          throw new Error(
+            'Stellar payout requested but STELLAR_OPERATOR_SECRET is not configured on this backend'
+          );
+        }
+        return stellar.release(recipient, amountUsdc);
+      }
+      return evm.release(recipient, amountUsdc);
+    },
+    // Admin treasury ops have no recipient to route on — default to the EVM escrow.
+    async refund(amountUsdc) {
+      return evm.refund(amountUsdc);
+    },
+    async balance() {
+      return evm.balance();
+    },
+  };
+}
+
+function routingEscrowFromEnv(env = process.env) {
+  const evm = escrowFromEnv(env);
+
+  let stellar = null;
+  if (env.STELLAR_OPERATOR_SECRET) {
+    try {
+      const { activeChain } = require('@kambiox/chains');
+      const stellarChain = activeChain({ ...env, CHAIN: env.STELLAR_CHAIN || 'stellar-testnet' });
+      const { stellarEscrowFromChain } = require('./stellarEscrow');
+      stellar = stellarEscrowFromChain(stellarChain);
+    } catch (err) {
+      // A malformed secret / bad Stellar config must NEVER take down the whole
+      // backend (which would also stop EVM/Base releases). Leave Stellar
+      // unconfigured — a Stellar payout then fails cleanly, per order, while the
+      // EVM path keeps working.
+      console.error(`[escrow] Stellar escrow NOT configured (releases to G… will fail): ${err.message}`);
+      stellar = null;
+    }
+  }
+
+  return createRoutingEscrowService({ evm, stellar });
+}
+
 module.exports = {
   createEscrowService,
   createRawSigner,
   createFakeSigner,
   escrowFromEnv,
+  createRoutingEscrowService,
+  routingEscrowFromEnv,
+  looksLikeStellarAddress,
   ESCROW_ABI,
 };

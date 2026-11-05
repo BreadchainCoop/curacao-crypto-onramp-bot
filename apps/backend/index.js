@@ -78,24 +78,38 @@ function createApp(deps = {}) {
 function startFromEnv() {
   const { sentooFromEnv } = require('./services/sentoo');
   const { ordersFromEnv } = require('./services/orders');
-  const { escrowFromEnv } = require('./services/escrow');
-  const { notifierFromEnv } = require('./services/notifier');
+  const { routingEscrowFromEnv, looksLikeStellarAddress } = require('./services/escrow');
+  const { notifierFromEnv, createTelegramNotifier } = require('./services/notifier');
   const { usersFromEnv } = require('./services/users');
   const { activeChain } = require('@kambiox/chains');
+
+  // EVM receipt-link base (the backend's configured CHAIN, e.g. base-sepolia).
+  const evmTxBase = process.env.EXPLORER_TX_BASE_URL || `${activeChain().explorer}/tx/`;
+  // Stellar receipt-link base, used when the payout is a G… account.
+  const stellarTxBase =
+    process.env.STELLAR_EXPLORER_TX_BASE_URL || 'https://stellar.expert/explorer/testnet/tx/';
+
+  // Second notifier for Stellar orders: receipts for a G… payout must come from
+  // the Stellar bot, not the Base bot. Only wired if its token is configured.
+  const stellarNotifier = process.env.TELEGRAM_STELLAR_BOT_TOKEN
+    ? createTelegramNotifier({ botToken: process.env.TELEGRAM_STELLAR_BOT_TOKEN })
+    : null;
 
   const deps = {
     sentoo: sentooFromEnv(),
     orders: ordersFromEnv(),
-    escrow: escrowFromEnv(),
+    // Routes each release to Stellar (G…) or EVM (0x…) by the payout address.
+    escrow: routingEscrowFromEnv(),
     notifier: notifierFromEnv(),
+    notifierStellar: stellarNotifier,
     users: usersFromEnv(),
     telegramReturnUrl: process.env.TELEGRAM_RETURN_URL || 'https://t.me/Cura_ramp_bot',
     telegramBotUsername: process.env.TELEGRAM_BOT_USERNAME || null,
     webhookToken: process.env.SENTOO_WEBHOOK_SECRET || null,
     kycWebhookSecret: process.env.SYNAPS_WEBHOOK_SECRET || null,
     opsSecret: process.env.OPS_API_SECRET || null,
-    // Receipt link uses the active chain's explorer (falls back to an override).
-    explorerTxBase: process.env.EXPLORER_TX_BASE_URL || `${activeChain().explorer}/tx/`,
+    // Receipt link resolves per payout: StellarExpert for G…, EVM explorer for 0x.
+    explorerTxBase: (recipient) => (looksLikeStellarAddress(recipient) ? stellarTxBase : evmTxBase),
     rateLimit: {
       windowMs: Number(process.env.WEBHOOK_RATE_WINDOW_MS) || 60_000,
       max: Number(process.env.WEBHOOK_RATE_MAX) || 120,

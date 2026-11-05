@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Add USDC trustline — KambioX</title>
+<script>/* Node globals some wallet libs expect in the browser */ window.global = window.global || window; window.process = window.process || { env: {} };</script>
+<!-- Telegram Mini App SDK: lets this page close itself and return the user to
+     the chat once the trustline is added. No-ops when opened outside Telegram. -->
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&display=swap" rel="stylesheet" />
+<style>
+  /* Brand tokens sampled from the live KambioX landing page. */
+  :root {
+    color-scheme: light;
+    --bg:#f3f2f2; --card:#f8f4f4; --ink:#201e1d; --muted:#6b6360;
+    --line:#e3dedd; --teal:#0088b0; --teal-d:#006786;
+    --serif:"Source Serif 4", Georgia, "Times New Roman", serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; }
+  body { background:var(--bg); color:var(--ink); font-family:var(--serif); font-size:16px; line-height:1.55; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:560px; margin:0 auto; padding:30px 16px 64px; }
+  .brand { display:inline-flex; align-items:center; gap:9px; font-weight:600; font-size:1.35rem; letter-spacing:-.02em; color:var(--ink); text-decoration:none; margin-bottom:34px; }
+  .brand .x { display:inline-grid; place-items:center; width:26px; height:26px; }
+  .brand .x svg { width:21px; height:21px; }
+  h1 { font-family:var(--serif); font-weight:600; font-size:2.15rem; line-height:1.1; letter-spacing:-.02em; margin:0 0 10px; }
+  p.sub { color:var(--muted); font-size:1.02rem; margin:0 0 26px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:4px; padding:4px 20px; margin:18px 0 22px; }
+  .asset-row { display:flex; justify-content:space-between; align-items:baseline; gap:14px; padding:14px 0; border-bottom:1px solid var(--line); }
+  .asset-row:last-child { border-bottom:0; }
+  .asset-row .k { color:var(--muted); font-size:.95rem; }
+  .asset-row .v { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.82rem; text-align:right; word-break:break-all; }
+  button { font-family:var(--serif); font-weight:600; cursor:pointer; border-radius:2px; padding:13px 18px; width:100%; font-size:1rem; border:1px solid transparent; transition:background .14s, border-color .14s, color .14s; }
+  .primary { background:var(--teal); color:var(--bg); }
+  .primary:hover { background:var(--teal-d); }
+  .primary:disabled { opacity:.5; cursor:default; }
+  .ghost { background:transparent; color:var(--ink); border:1px solid var(--ink); margin-top:10px; }
+  .ghost:hover { background:var(--ink); color:var(--bg); }
+  .status { margin-top:16px; padding:13px 15px; border-radius:4px; font-size:.95rem; display:none; border:1px solid transparent; }
+  .status.show { display:block; }
+  .status.ok  { background:#e7f0ea; border-color:#cfe2d6; color:#2f5a3d; }
+  .status.err { background:#f6eae9; border-color:#e6cfce; color:#8a3a38; }
+  .status.info{ background:#e9f1f4; border-color:#cfe2e9; color:var(--teal-d); }
+  a { color:var(--teal-d); }
+  .muted { color:var(--muted); font-size:.92rem; }
+  code { background:#ece7e6; padding:1px 5px; border-radius:3px; font-size:.85em; }
+  .steps { margin:26px 0 0; padding:0; list-style:none; color:var(--muted); font-size:.92rem; }
+  .steps li { padding-left:22px; position:relative; margin:7px 0; }
+  .steps li::before { content:""; position:absolute; left:0; top:.55em; width:6px; height:6px; border-radius:50%; background:var(--teal); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="brand" href="/" aria-label="KambioX home">
+    <span class="x" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 4l16 16M20 4L4 20"/></svg></span>
+    KambioX
+  </a>
+
+  <h1>Add the USDC trustline</h1>
+  <p class="sub">Your Stellar wallet needs to trust <strong>Circle&rsquo;s testnet USDC</strong> before it can receive USDC from KambioX. It&rsquo;s a one-time, free step.</p>
+
+  <div class="card">
+    <div class="asset-row"><span class="k">Asset</span><span class="v">USDC</span></div>
+    <div class="asset-row"><span class="k">Issuer (Circle, testnet)</span><span class="v" id="issuer">GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5</span></div>
+    <div class="asset-row"><span class="k">Network</span><span class="v">Testnet</span></div>
+  </div>
+
+  <button class="primary" id="add">Connect wallet &amp; add trustline</button>
+  <button class="ghost" id="copy">Copy issuer address</button>
+  <div class="status" id="status"></div>
+
+  <ul class="steps">
+    <li>Connects Freighter, Lobstr, xBull, Albedo, Rabet, Hana and more &mdash; web and mobile.</li>
+    <li>Prefer to do it by hand? Add a custom asset with code <code>USDC</code> and the issuer above, on <strong>testnet</strong>, in any wallet.</li>
+    <li>Then return to the bot and paste your Stellar address again.</li>
+  </ul>
+</div>
+
+<script type="module">
+  // Local bundle (Stellar Wallets Kit 1.9.5 + stellar-sdk 14.4.2 — the same
+  // versions CoopStable ships). Bundled because the kit's deps don't load
+  // cleanly from a CDN in a no-build page. Rebuild steps: WALLET-KIT.md.
+  import {
+    StellarWalletsKit, WalletNetwork, allowAllModules, FREIGHTER_ID,
+    Asset, Operation, TransactionBuilder, BASE_FEE, Networks, Horizon,
+  } from './wallet-kit.bundle.js?v=5';
+
+  const ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
+  const HORIZON = 'https://horizon-testnet.stellar.org';
+  const BOT_URL = 'https://t.me/Kambio_stellar_bot';
+  const addBtn = document.getElementById('add');
+  const copyBtn = document.getElementById('copy');
+  const statusEl = document.getElementById('status');
+
+  // Telegram Mini App context — present only when opened from the bot's button.
+  const tg = window.Telegram && window.Telegram.WebApp;
+  const inTelegram = !!(tg && tg.platform && tg.platform !== 'unknown');
+  if (tg) { try { tg.ready(); tg.expand(); } catch (_) {} }
+
+  function show(kind, html) {
+    statusEl.className = 'status show ' + kind;
+    statusEl.innerHTML = html;
+  }
+
+  /** Success terminus: inside Telegram, show a brief note then close the Mini
+   *  App so the user lands back in the chat; otherwise offer a link back. */
+  function finish(msg) {
+    if (inTelegram) {
+      show('ok', msg + ' Taking you back to the chat…');
+      addBtn.disabled = true;
+      setTimeout(() => { try { tg.close(); } catch (_) {} }, 1800);
+    } else {
+      show('ok', msg + ` <a href="${BOT_URL}">Return to the bot</a> and paste your address again.`);
+    }
+  }
+
+  copyBtn.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(ISSUER); show('info', 'Issuer address copied.'); }
+    catch { show('info', 'Copy failed — select the issuer above manually.'); }
+  });
+
+  // Multi-wallet picker, configured exactly like CoopStable's UserService:
+  // allowAllModules() (Freighter, xBull, Albedo, Rabet, Lobstr, Hana, HOT,
+  // WalletConnect…), initial highlight on Freighter, testnet.
+  const kit = new StellarWalletsKit({
+    network: WalletNetwork.TESTNET,
+    selectedWalletId: FREIGHTER_ID,
+    modules: allowAllModules(),
+  });
+
+  async function addTrustlineFor(address) {
+    show('info', 'Building the trustline transaction…');
+    const server = new Horizon.Server(HORIZON);
+    const account = await server.loadAccount(address);
+    const asset = new Asset('USDC', ISSUER);
+
+    if (account.balances.some((b) => b.asset_code === 'USDC' && b.asset_issuer === ISSUER)) {
+      finish('This wallet already trusts Circle&rsquo;s testnet USDC — you&rsquo;re all set.');
+      return;
+    }
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: Networks.TESTNET,
+    }).addOperation(Operation.changeTrust({ asset })).setTimeout(180).build();
+
+    show('info', 'Approve the transaction in your wallet…');
+    const { signedTxXdr } = await kit.signTransaction(tx.toXDR(), {
+      address,
+      networkPassphrase: WalletNetwork.TESTNET,
+    });
+    if (!signedTxXdr) throw new Error('Signing was cancelled.');
+
+    show('info', 'Submitting…');
+    const signedTx = TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET);
+    await server.submitTransaction(signedTx);
+    finish('Trustline added — your USDC can now land.');
+  }
+
+  addBtn.addEventListener('click', async () => {
+    addBtn.disabled = true;
+    try {
+      await kit.openModal({
+        onWalletSelected: async (option) => {
+          try {
+            kit.setWallet(option.id);
+            const { address } = await kit.getAddress();
+            if (!address) throw new Error('No address returned from the wallet.');
+            await addTrustlineFor(address);
+          } catch (e) {
+            const msg = (e && e.message) || String(e);
+            show('err', 'Could not add the trustline: ' + msg + '<br><br>You can add it manually with the details above.');
+          }
+        },
+        onClosed: () => { addBtn.disabled = false; },
+      });
+    } catch (e) {
+      show('err', 'Wallet connection failed: ' + ((e && e.message) || e));
+    } finally {
+      addBtn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
