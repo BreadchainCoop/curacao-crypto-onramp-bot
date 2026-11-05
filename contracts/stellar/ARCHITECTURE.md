@@ -277,10 +277,10 @@ Rates: Fernando Trouw USD 100/h, Ruben Russel USD 80/h.
 | # | Deliverable | Owner | Hours | Cost (USD) |
 |---|---|---|---|---|
 | 1.1 | KambioEscrow v1 | Fernando 120 | 120 | 12,000 |
-| 1.2 | Stellar settlement path in the backend | Ruben 80 | 80 | 6,400 |
+| 1.2 | Settlement path on KambioEscrow v1 | Ruben 40 | 40 | 3,200 |
 | 1.3 | Privy Stellar wallets in the bot | Ruben 8 | 8 | 640 |
 | 1.4 | Sponsored account activation and USDC trustline | Ruben 32 | 32 | 2,560 |
-| | **Tranche 1** | | **240** | **21,600** |
+| | **Tranche 1** | | **200** | **18,400** |
 | 2.1 | Anchor Platform deployment (SEP-1, SEP-10) | Fernando 120 | 120 | 12,000 |
 | 2.2 | SEP-12 KYC through Sumsub, shared by wallets and the bot | Ruben 80 | 80 | 6,400 |
 | 2.3 | SEP-24 deposit and business server | Fernando 80, Ruben 80 | 160 | 14,400 |
@@ -295,15 +295,15 @@ Rates: Fernando Trouw USD 100/h, Ruben Russel USD 80/h.
 | 3.5 | Live monitoring and public dashboard | Ruben 40 | 40 | 3,200 |
 | 3.6 | User testing in Curaçao (user-testing line) | Ruben 30 | 30 | 2,400 |
 | | **Tranche 3** | | **250** | **23,000** |
-| | **Total** | Fernando 570, Ruben 400 | **970** | **89,000** |
+| | **Total** | Fernando 570, Ruben 360 | **930** | **85,800** |
 
-Integration List blocks: Anchor Platform USD 47,400 (2.1, 2.2, 2.3, 3.1, 3.2, 3.3), Bridge USD 4,000 (2.4), Privy USD 3,200 (1.3, 1.4). Total USD 54,600, 61 percent of the ask.
+Integration List blocks: Anchor Platform USD 47,400 (2.1, 2.2, 2.3, 3.1, 3.2, 3.3), Bridge USD 4,000 (2.4), Privy USD 3,200 (1.3, 1.4). Total USD 54,600, 64 percent of the ask.
 
 Final-tranche onchain metric (Integration Track): USD 10,000 of USDC released to users through KambioEscrow on mainnet within 60 days of the first mainnet release, team and treasury accounts excluded. Verified on the public dashboard (3.5) and StellarExpert.
 
 ### Not funded by this grant
 
-Telegram bot, backend and Sentoo integration (existing), the Sentoo production setup, CBCS reporting and compliance tooling, EVM escrows, the minimal KambioEscrow deployed before submission, USDC float, Sentoo and Sumsub fees, hosting, CBCS licensing, legal and incorporation costs, marketing, and the security audit (Soroban Security Audit Bank).
+Telegram bot, backend and Sentoo integration (existing), the Sentoo production setup, CBCS reporting and compliance tooling, EVM escrows, KambioEscrow v0.3.0 and the Stellar testnet bot built before submission, USDC float, Sentoo and Sumsub fees, hosting, CBCS licensing, legal and incorporation costs, marketing, and the security audit (Soroban Security Audit Bank).
 
 ### Dependency and contingency
 
@@ -313,9 +313,11 @@ Mainnet runs inside the CBCS VASP sandbox (filing December 2026). Tranches 1 and
 
 KambioEscrow v0.3.0 on testnet (`CARXCXWNW5NF4ZLLM6S3VPY7DXNPSUNRYNXVVS2BALU3X6IJALDYHTJY`): owner-only `release` and `withdraw`, `deposit`, `balance`, events, 15 unit tests in CI, attested release. A test deposit of 9 USDC, a release of 1 USDC and a withdrawal of 1 USDC are settled on testnet. Tranche 1 builds KambioEscrow v1 on top of it (operator role, caps, pause, multisig admin, replay protection).
 
+Stellar testnet bot (`@Kambio_stellar_bot`): a Sentoo sandbox payment releases USDC from KambioEscrow v0.3.0 through the shared backend (owner-key release, routing by payout address); the bot checks the USDC trustline on the user's Stellar address and links to a Stellar Wallets Kit page to add it. Deliverable 1.2 moves this path to KambioEscrow v1: operator key releasing within caps, order IDs for replay protection, reconciliation of every order against contract events.
+
 ### Sandbox limits
 
-During the CBCS sandbox phase the bot accepts orders of 10 to 1,000 USDC, with a per-user daily limit. KambioEscrow v1 enforces the same per-order cap on chain and adds a contract-level daily cap (deliverable 1.1).
+During the CBCS sandbox phase the bot accepts orders of 10 to 1,000 USDC, with a daily limit of 1,000 USDC per user. KambioEscrow v1 enforces the same per-order cap on chain and adds a contract-level daily cap (deliverable 1.1).
 
 ### Pricing shown to the user
 
